@@ -1,0 +1,351 @@
+// Play Book - Database Schema
+// Based on PRD v1.0 Data Models
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// User Model (PRD Section 8.1)
+// ============================================
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique // lowercase, unique
+  displayName  String
+  email        String   @unique
+  passwordHash String
+  bio          String?
+  avatarUrl    String?
+  isArtist     Boolean  @default(false)
+  artistName   String?
+
+  // Streaming profile links (JSON object)
+  streamingLinks Json @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  posts              Post[]
+  comments           Comment[]
+  playlists          Playlist[]
+  upvotes            Upvote[]
+  notifications      Notification[]       @relation("NotificationRecipient")
+  actorNotifications Notification[]       @relation("NotificationActor")
+  reputations        Reputation[]
+  memberships        CommunityMembership[]
+  createdCommunities Community[]
+
+  // Follow relations
+  following Follow[] @relation("Follower")
+  followers Follow[] @relation("Following")
+
+  // Saved posts
+  savedPosts SavedPost[]
+
+  @@index([username])
+  @@index([email])
+}
+
+// ============================================
+// Post Model (PRD Section 8.2)
+// ============================================
+model Post {
+  id             String    @id @default(cuid())
+  authorId       String
+  content        String    @db.VarChar(2000) // max 2000 chars
+  linkUrl        String?
+  linkType       LinkType?
+  tags           String[]  // community tags, genre tags
+  upvoteCount    Int       @default(0)
+  commentCount   Int       @default(0)
+  isNewAndUpcoming Boolean @default(false) // #NewAndUpcoming tag
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments Comment[]
+  upvotes  Upvote[]  @relation("PostUpvotes")
+  savedBy  SavedPost[]
+
+  // Community tags (many-to-many)
+  communities PostCommunity[]
+
+  @@index([authorId])
+  @@index([createdAt])
+  @@index([isNewAndUpcoming])
+}
+
+enum LinkType {
+  track
+  album
+  playlist
+}
+
+// ============================================
+// Community Model (PRD Section 8.3)
+// ============================================
+model Community {
+  id            String        @id @default(cuid())
+  slug          String        @unique // unique identifier
+  type          CommunityType
+  name          String
+  description   String?
+  rules         String?
+  coverImageUrl String?
+  creatorId     String
+  memberCount   Int           @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  creator     User                  @relation(fields: [creatorId], references: [id])
+  members     CommunityMembership[]
+  posts       PostCommunity[]
+  reputations Reputation[]
+
+  @@index([slug])
+  @@index([type])
+}
+
+enum CommunityType {
+  artist // a/ communities
+  user   // u/ communities
+}
+
+// ============================================
+// Comment Model (PRD Section 8.4)
+// ============================================
+model Comment {
+  id              String  @id @default(cuid())
+  postId          String
+  authorId        String
+  parentCommentId String? // for threading
+  content         String  @db.VarChar(1000) // max 1000 chars
+  upvoteCount     Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  post          Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author        User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parentComment Comment?  @relation("CommentReplies", fields: [parentCommentId], references: [id])
+  replies       Comment[] @relation("CommentReplies")
+  upvotes       Upvote[]  @relation("CommentUpvotes")
+
+  @@index([postId])
+  @@index([authorId])
+  @@index([parentCommentId])
+}
+
+// ============================================
+// Reputation Model (PRD Section 8.5)
+// ============================================
+model Reputation {
+  id          String         @id @default(cuid())
+  userId      String
+  communityId String
+  score       Int            @default(0)
+  tier        ReputationTier @default(newcomer)
+
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, communityId])
+  @@index([userId])
+  @@index([communityId])
+}
+
+enum ReputationTier {
+  newcomer  // 0-99
+  regular   // 100-499
+  trusted   // 500-999
+  curator   // 1000+
+}
+
+// ============================================
+// Follow Model (PRD Section 8.6)
+// ============================================
+model Follow {
+  id          String @id @default(cuid())
+  followerId  String
+  followingId String
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  follower  User @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+// ============================================
+// CommunityMembership Model (PRD Section 8.7)
+// ============================================
+model CommunityMembership {
+  id          String         @id @default(cuid())
+  userId      String
+  communityId String
+  role        MembershipRole @default(member)
+
+  joinedAt DateTime @default(now())
+
+  // Relations
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, communityId])
+  @@index([userId])
+  @@index([communityId])
+}
+
+enum MembershipRole {
+  member
+  moderator
+  creator
+}
+
+// ============================================
+// Playlist Models (PRD Section 8.8)
+// ============================================
+model Playlist {
+  id            String  @id @default(cuid())
+  ownerId       String
+  name          String
+  description   String?
+  coverImageUrl String?
+  isPublic      Boolean @default(true)
+  trackCount    Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  owner  User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tracks PlaylistTrack[]
+
+  @@index([ownerId])
+}
+
+model PlaylistTrack {
+  id         String @id @default(cuid())
+  playlistId String
+  linkUrl    String
+  title      String
+  artist     String
+  position   Int
+
+  addedAt DateTime @default(now())
+
+  // Relations
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+
+  @@index([playlistId])
+}
+
+// ============================================
+// Upvote Model (PRD Section 8.9)
+// ============================================
+model Upvote {
+  id         String     @id @default(cuid())
+  userId     String
+  targetType TargetType
+  targetId   String
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post    Post?    @relation("PostUpvotes", fields: [targetId], references: [id], map: "upvote_post_fk")
+  comment Comment? @relation("CommentUpvotes", fields: [targetId], references: [id], map: "upvote_comment_fk")
+
+  @@unique([userId, targetType, targetId])
+  @@index([userId])
+  @@index([targetType, targetId])
+}
+
+enum TargetType {
+  post
+  comment
+}
+
+// ============================================
+// Notification Model (PRD Section 8.10)
+// ============================================
+model Notification {
+  id         String           @id @default(cuid())
+  userId     String           // recipient
+  type       NotificationType
+  actorId    String           // user who triggered
+  targetType String
+  targetId   String
+  isRead     Boolean          @default(false)
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  user  User @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actor User @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+enum NotificationType {
+  follow
+  upvote_post
+  upvote_comment
+  comment
+  reply
+  mention
+}
+
+// ============================================
+// Junction Tables
+// ============================================
+
+// Post-Community many-to-many
+model PostCommunity {
+  id          String @id @default(cuid())
+  postId      String
+  communityId String
+
+  // Relations
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, communityId])
+  @@index([postId])
+  @@index([communityId])
+}
+
+// Saved Posts
+model SavedPost {
+  id     String @id @default(cuid())
+  userId String
+  postId String
+
+  savedAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@index([userId])
+}
