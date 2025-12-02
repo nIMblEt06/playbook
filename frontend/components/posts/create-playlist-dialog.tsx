@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Search, Plus, Trash2, Music, Disc, List, Loader2, Image as ImageIcon, ChevronLeft, ChevronRight, GripVertical } from 'lucide-react'
-import { searchTracks, searchAlbums, getCoverArt, type Recording, type Release } from '@/lib/utils/musicbrainz'
+import { X, Search, Plus, Trash2, Music, Disc, List, Loader2, Image as ImageIcon, ChevronLeft, ChevronRight, GripVertical, ChevronDown, ChevronUp } from 'lucide-react'
+import { searchTracks, searchAlbums, getCoverArt, getAlbumTracks, type Recording, type Release, type Track as MBTrack } from '@/lib/utils/musicbrainz'
 import { fetchAndCacheImage, imageCache } from '@/lib/utils/image-cache'
 import Image from 'next/image'
 
@@ -46,6 +46,11 @@ export function CreatePlaylistDialog({ isOpen, onClose, onSubmit }: CreatePlayli
   const [cachedCovers, setCachedCovers] = useState<Map<string, string>>(new Map())
   const resultsPerPage = 5
   
+  // For album track expansion
+  const [expandedAlbumId, setExpandedAlbumId] = useState<string | null>(null)
+  const [albumTracks, setAlbumTracks] = useState<Map<string, MBTrack[]>>(new Map())
+  const [loadingAlbumTracks, setLoadingAlbumTracks] = useState<Set<string>>(new Set())
+  
   // For drag and drop
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
@@ -66,6 +71,8 @@ export function CreatePlaylistDialog({ isOpen, onClose, onSubmit }: CreatePlayli
       setTotalResults(0)
       setCurrentPage(1)
       setSelectedItem(null)
+      setExpandedAlbumId(null)
+      setAlbumTracks(new Map())
     }
   }, [isOpen])
 
@@ -144,6 +151,48 @@ export function CreatePlaylistDialog({ isOpen, onClose, onSubmit }: CreatePlayli
     if (currentPage > 1 && !isSearching) {
       handleSearch(currentPage - 1)
     }
+  }
+
+  const handleToggleAlbumExpansion = async (releaseId: string) => {
+    if (expandedAlbumId === releaseId) {
+      // Collapse
+      setExpandedAlbumId(null)
+    } else {
+      // Expand
+      setExpandedAlbumId(releaseId)
+      
+      // Fetch tracks if not already loaded
+      if (!albumTracks.has(releaseId)) {
+        setLoadingAlbumTracks(prev => new Set(prev).add(releaseId))
+        const tracks = await getAlbumTracks(releaseId)
+        setAlbumTracks(prev => new Map(prev).set(releaseId, tracks))
+        setLoadingAlbumTracks(prev => {
+          const next = new Set(prev)
+          next.delete(releaseId)
+          return next
+        })
+      }
+    }
+  }
+
+  const handleAddTrackFromAlbum = async (albumTrack: MBTrack, release: Release) => {
+    const artist = release['artist-credit']?.[0]?.artist?.name || 'Unknown Artist'
+    
+    let albumArt: string | undefined
+    const coverUrl = await getCoverArt(release.id)
+    if (coverUrl) {
+      albumArt = await imageCache.get(coverUrl) || coverUrl
+    }
+
+    const track: Track = {
+      id: `${albumTrack.id}-${Date.now()}`,
+      title: albumTrack.title,
+      artist,
+      linkUrl: `https://musicbrainz.org/recording/${albumTrack.recording?.id || albumTrack.id}`,
+      albumArt,
+    }
+
+    setTracks(prev => [...prev, track])
   }
 
   const handleAddTrack = async (item: Recording | Release) => {
@@ -427,33 +476,89 @@ export function CreatePlaylistDialog({ isOpen, onClose, onSubmit }: CreatePlayli
                       : (item as Release).id
                     const isLoading = releaseId ? loadingCovers.has(releaseId) : false
                     const coverImage = releaseId ? cachedCovers.get(releaseId) : undefined
+                    const isAlbum = !isRecording && searchTab === 'album'
+                    const isExpanded = isAlbum && expandedAlbumId === item.id
+                    const tracks = isAlbum ? albumTracks.get(item.id) : undefined
+                    const isLoadingTracks = isAlbum && loadingAlbumTracks.has(item.id)
 
                     return (
-                      <div
-                        key={item.id}
-                        className="flex items-center gap-3 p-3 card card-hover cursor-pointer"
-                        onClick={() => handleAddTrack(item)}
-                      >
-                        <div className="w-12 h-12 bg-muted border-2 border-border flex items-center justify-center flex-shrink-0 overflow-hidden">
-                          {isLoading ? (
-                            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                          ) : coverImage ? (
-                            <Image
-                              src={coverImage}
-                              alt={item.title}
-                              width={48}
-                              height={48}
-                              className="w-full h-full object-cover"
-                            />
+                      <div key={item.id} className="space-y-1">
+                        <div
+                          className="flex items-center gap-3 p-3 card card-hover cursor-pointer"
+                          onClick={() => {
+                            if (isAlbum && contentType === 'playlist') {
+                              handleToggleAlbumExpansion(item.id)
+                            } else {
+                              handleAddTrack(item)
+                            }
+                          }}
+                        >
+                          <div className="w-12 h-12 bg-muted border-2 border-border flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {isLoading ? (
+                              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                            ) : coverImage ? (
+                              <Image
+                                src={coverImage}
+                                alt={item.title}
+                                width={48}
+                                height={48}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <Music className="w-5 h-5 text-muted-foreground" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{item.title}</p>
+                            <p className="text-sm text-muted-foreground truncate">{artist}</p>
+                            {isAlbum && (item as Release).date && (
+                              <p className="text-xs text-muted-foreground">{(item as Release).date}</p>
+                            )}
+                          </div>
+                          {isAlbum && contentType === 'playlist' ? (
+                            isExpanded ? (
+                              <ChevronUp className="w-5 h-5 text-primary flex-shrink-0" />
+                            ) : (
+                              <ChevronDown className="w-5 h-5 text-primary flex-shrink-0" />
+                            )
                           ) : (
-                            <Music className="w-5 h-5 text-muted-foreground" />
+                            <Plus className="w-5 h-5 text-primary flex-shrink-0" />
                           )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{item.title}</p>
-                          <p className="text-sm text-muted-foreground truncate">{artist}</p>
-                        </div>
-                        <Plus className="w-5 h-5 text-primary flex-shrink-0" />
+                        
+                        {/* Album tracks dropdown */}
+                        {isAlbum && isExpanded && contentType === 'playlist' && (
+                          <div className="ml-4 pl-4 border-l-2 border-border space-y-1">
+                            {isLoadingTracks ? (
+                              <div className="flex items-center justify-center py-4">
+                                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                                <span className="ml-2 text-sm text-muted-foreground">Loading tracks...</span>
+                              </div>
+                            ) : tracks && tracks.length > 0 ? (
+                              tracks.map((track) => (
+                                <div
+                                  key={track.id}
+                                  className="flex items-center gap-2 p-2 hover:bg-muted/50 cursor-pointer text-sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleAddTrackFromAlbum(track, item as Release)
+                                  }}
+                                >
+                                  <span className="text-muted-foreground w-6 text-right">{track.number}</span>
+                                  <span className="flex-1 truncate">{track.title}</span>
+                                  {track.length && (
+                                    <span className="text-muted-foreground text-xs">
+                                      {Math.floor(track.length / 60000)}:{String(Math.floor((track.length % 60000) / 1000)).padStart(2, '0')}
+                                    </span>
+                                  )}
+                                  <Plus className="w-4 h-4 text-primary flex-shrink-0" />
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-sm text-muted-foreground py-2">No tracks found</p>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )
                   })}

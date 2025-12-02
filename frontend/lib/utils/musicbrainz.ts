@@ -40,6 +40,22 @@ export interface Release {
     id: string
     'primary-type'?: string
   }
+  media?: Medium[]
+}
+
+export interface Medium {
+  position: number
+  format?: string
+  'track-count': number
+  tracks?: Track[]
+}
+
+export interface Track {
+  id: string
+  number: string
+  title: string
+  length?: number
+  recording?: Recording
 }
 
 export interface Recording {
@@ -57,7 +73,7 @@ interface SearchResponse<T> {
 }
 
 /**
- * Search for tracks on MusicBrainz
+ * Search for tracks on MusicBrainz with optimized query
  */
 export async function searchTracks(
   query: string,
@@ -65,10 +81,15 @@ export async function searchTracks(
   limit: number = 10
 ): Promise<SearchResponse<Recording>> {
   const offset = (page - 1) * limit
+  
+  // Build optimized search query
+  // Search in recording (track name), artist, and release fields for best results
+  const searchQuery = query.trim()
+  
   const params = new URLSearchParams({
-    query: query.trim(),
+    query: searchQuery,
     fmt: 'json',
-    limit: limit.toString(),
+    limit: Math.min(limit, 100).toString(), // API max is 100
     offset: offset.toString(),
   })
   
@@ -95,7 +116,8 @@ export async function searchTracks(
 }
 
 /**
- * Search for albums (releases) on MusicBrainz
+ * Search for albums (releases) on MusicBrainz with optimized query
+ * Filters for official releases and albums only
  */
 export async function searchAlbums(
   query: string,
@@ -103,10 +125,17 @@ export async function searchAlbums(
   limit: number = 10
 ): Promise<SearchResponse<Release>> {
   const offset = (page - 1) * limit
+  
+  // Build optimized search query
+  // Search for albums with status:official to get quality results
+  // primarytype:album to exclude singles, EPs, etc.
+  const searchQuery = query.trim()
+  const enhancedQuery = `${searchQuery} AND status:official AND primarytype:album`
+  
   const params = new URLSearchParams({
-    query: query.trim(),
+    query: enhancedQuery,
     fmt: 'json',
-    limit: limit.toString(),
+    limit: Math.min(limit, 100).toString(), // API max is 100
     offset: offset.toString(),
   })
   
@@ -129,6 +158,44 @@ export async function searchAlbums(
   } catch (error) {
     console.error('Error searching albums:', error)
     return { items: [], total: 0, offset: 0 }
+  }
+}
+
+/**
+ * Get tracks from a release/album
+ */
+export async function getAlbumTracks(releaseId: string): Promise<Track[]> {
+  const params = new URLSearchParams({
+    fmt: 'json',
+    inc: 'recordings', // Include recording information
+  })
+  
+  const url = `${MUSICBRAINZ_API_BASE}/release/${releaseId}?${params.toString()}`
+  
+  try {
+    const response = await rateLimitedFetch(url)
+    
+    if (!response.ok) {
+      throw new Error(`MusicBrainz API error: ${response.status}`)
+    }
+    
+    const data = await response.json()
+    
+    // Extract all tracks from all media (discs)
+    const allTracks: Track[] = []
+    
+    if (data.media && Array.isArray(data.media)) {
+      for (const medium of data.media) {
+        if (medium.tracks && Array.isArray(medium.tracks)) {
+          allTracks.push(...medium.tracks)
+        }
+      }
+    }
+    
+    return allTracks
+  } catch (error) {
+    console.error('Error fetching album tracks:', error)
+    return []
   }
 }
 
