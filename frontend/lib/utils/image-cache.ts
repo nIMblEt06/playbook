@@ -21,10 +21,18 @@ class ImageCache {
   private initPromise: Promise<void> | null = null
 
   constructor() {
-    this.initPromise = this.initDB()
+    // Only initialize in browser environment
+    if (typeof window !== 'undefined' && typeof indexedDB !== 'undefined') {
+      this.initPromise = this.initDB()
+    }
   }
 
   private async initDB(): Promise<void> {
+    // Guard against SSR
+    if (typeof window === 'undefined' || typeof indexedDB === 'undefined') {
+      return Promise.resolve()
+    }
+    
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(CACHE_NAME, CACHE_VERSION)
 
@@ -44,7 +52,12 @@ class ImageCache {
     })
   }
 
-  private async ensureDB(): Promise<IDBDatabase> {
+  private async ensureDB(): Promise<IDBDatabase | null> {
+    // Return null if not in browser
+    if (typeof window === 'undefined' || typeof indexedDB === 'undefined') {
+      return null
+    }
+    
     if (this.initPromise) {
       await this.initPromise
     }
@@ -60,9 +73,11 @@ class ImageCache {
       return this.memoryCache.get(url)!
     }
 
-    // Check IndexedDB
+    // Check IndexedDB (only in browser)
     try {
       const db = await this.ensureDB()
+      if (!db) return null // Not in browser environment
+      
       const transaction = db.transaction(['images'], 'readonly')
       const store = transaction.objectStore('images')
       const request = store.get(url)
@@ -97,9 +112,11 @@ class ImageCache {
     // Add to memory cache
     this.memoryCache.set(url, data)
 
-    // Add to IndexedDB
+    // Add to IndexedDB (only in browser)
     try {
       const db = await this.ensureDB()
+      if (!db) return // Not in browser environment
+      
       const size = new Blob([data]).size
 
       // Check cache size and cleanup if needed
@@ -130,6 +147,8 @@ class ImageCache {
 
     try {
       const db = await this.ensureDB()
+      if (!db) return // Not in browser environment
+      
       const transaction = db.transaction(['images'], 'readwrite')
       const store = transaction.objectStore('images')
       store.delete(url)
@@ -146,6 +165,8 @@ class ImageCache {
   private async cleanupIfNeeded(newSize: number): Promise<void> {
     try {
       const db = await this.ensureDB()
+      if (!db) return // Not in browser environment
+      
       const transaction = db.transaction(['images'], 'readonly')
       const store = transaction.objectStore('images')
       const request = store.getAll()
@@ -191,6 +212,8 @@ class ImageCache {
 
     try {
       const db = await this.ensureDB()
+      if (!db) return // Not in browser environment
+      
       const transaction = db.transaction(['images'], 'readwrite')
       const store = transaction.objectStore('images')
       store.clear()
