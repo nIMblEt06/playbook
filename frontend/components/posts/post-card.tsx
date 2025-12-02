@@ -7,12 +7,22 @@ import type { Post } from '@/lib/types'
 import { useUpvotePost, useSavePost } from '@/lib/hooks/use-posts'
 import { formatDistanceToNow } from 'date-fns'
 import { useState } from 'react'
+import { PlaylistPostCard } from './playlist-post-card'
 
 interface PostCardProps {
   post: Post
 }
 
 export function PostCard({ post }: PostCardProps) {
+  // Use special playlist card only for internal custom playlists
+  // Check if the linkUrl is an internal playlist (contains /playlist/ in the path)
+  const isCustomPlaylist = post.linkType === 'playlist' && 
+    post.linkUrl && 
+    (post.linkUrl.includes('/playlist/') || post.linkUrl.startsWith('/playlist/'))
+  
+  if (isCustomPlaylist) {
+    return <PlaylistPostCard post={post} />
+  }
   const [hasUpvoted, setHasUpvoted] = useState(post.hasUpvoted || false)
   const [hasSaved, setHasSaved] = useState(post.hasSaved || false)
   const [upvoteCount, setUpvoteCount] = useState(post.upvoteCount)
