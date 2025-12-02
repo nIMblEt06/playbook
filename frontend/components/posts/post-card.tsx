@@ -24,7 +24,7 @@ export function PostCard({ post }: PostCardProps) {
     const newUpvoted = !hasUpvoted
     setHasUpvoted(newUpvoted)
     setUpvoteCount((prev) => (newUpvoted ? prev + 1 : prev - 1))
-    upvoteMutation.mutate({ id: post.id, remove: !newUpvoted })
+    upvoteMutation.mutate({ id: post?.id, remove: !newUpvoted })
   }
 
   const handleSave = () => {
