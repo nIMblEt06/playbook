@@ -14,6 +14,14 @@ interface PostCardProps {
 }
 
 export function PostCard({ post }: PostCardProps) {
+  // All hooks must be called before any conditional returns
+  const [hasUpvoted, setHasUpvoted] = useState(post.hasUpvoted || false)
+  const [hasSaved, setHasSaved] = useState(post.hasSaved || false)
+  const [upvoteCount, setUpvoteCount] = useState(post.upvoteCount)
+
+  const upvoteMutation = useUpvotePost()
+  const saveMutation = useSavePost()
+
   // Use special playlist card only for internal custom playlists
   // Check if the linkUrl is an internal playlist (contains /playlist/ in the path)
   const isCustomPlaylist = post.linkType === 'playlist' && 
@@ -23,12 +31,6 @@ export function PostCard({ post }: PostCardProps) {
   if (isCustomPlaylist) {
     return <PlaylistPostCard post={post} />
   }
-  const [hasUpvoted, setHasUpvoted] = useState(post.hasUpvoted || false)
-  const [hasSaved, setHasSaved] = useState(post.hasSaved || false)
-  const [upvoteCount, setUpvoteCount] = useState(post.upvoteCount)
-
-  const upvoteMutation = useUpvotePost()
-  const saveMutation = useSavePost()
 
   const handleUpvote = () => {
     const newUpvoted = !hasUpvoted
