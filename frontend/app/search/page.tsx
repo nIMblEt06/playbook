@@ -176,7 +176,7 @@ export default function SearchPage() {
                     (!results?.communities || results.communities.length === 0) &&
                     (!results?.posts || results.posts.length === 0))) && (
                   <div className="text-center py-12 text-muted-foreground">
-                    No results found for "{initialQuery}"
+                    No results found for &quot;{initialQuery}&quot;
                   </div>
                 )}
             </>

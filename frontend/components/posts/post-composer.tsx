@@ -1,18 +1,23 @@
 'use client'
 
 import { useState } from 'react'
-import { Image as ImageIcon, Link as LinkIcon, X } from 'lucide-react'
+import { Image as ImageIcon, Link as LinkIcon, X, Music } from 'lucide-react'
 import { useCreatePost } from '@/lib/hooks/use-posts'
 import { useAuthStore } from '@/lib/store/auth-store'
 import type { LinkType } from '@/lib/types'
 import NextImage from 'next/image'
+import { CreatePlaylistDialog } from './create-playlist-dialog'
+import { playlistsService } from '@/lib/api/services/playlists'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 export function PostComposer() {
   const { user } = useAuthStore()
+  const queryClient = useQueryClient()
   const [content, setContent] = useState('')
   const [linkUrl, setLinkUrl] = useState('')
   const [linkType, setLinkType] = useState<LinkType>('track')
   const [showLinkInput, setShowLinkInput] = useState(false)
+  const [showPlaylistDialog, setShowPlaylistDialog] = useState(false)
 
   const createPostMutation = useCreatePost()
 
@@ -33,6 +38,52 @@ export function PostComposer() {
         },
       }
     )
+  }
+
+  const handlePlaylistSubmit = async (data: {
+    name: string
+    description: string
+    tracks: Array<{ id: string; title: string; artist: string; linkUrl: string; albumArt?: string }>
+    coverImageUrl?: string
+  }) => {
+    try {
+      // Create the playlist first
+      const playlist = await playlistsService.createPlaylist({
+        name: data.name,
+        description: data.description,
+        coverImageUrl: data.coverImageUrl,
+        isPublic: true,
+      })
+
+      // Add tracks to the playlist
+      for (let i = 0; i < data.tracks.length; i++) {
+        const track = data.tracks[i]
+        await playlistsService.addTrack(playlist.id, {
+          linkUrl: track.linkUrl,
+          title: track.title,
+          artist: track.artist,
+          position: i,
+        })
+      }
+
+      // Create a post with the playlist
+      const postContent = data.description 
+        ? `${data.name}\n\n${data.description}` 
+        : data.name
+
+      await createPostMutation.mutateAsync({
+        content: postContent,
+        linkUrl: `${window.location.origin}/playlist/${playlist.id}`,
+        linkType: 'playlist',
+      })
+
+      // Close dialog and refresh
+      setShowPlaylistDialog(false)
+      queryClient.invalidateQueries({ queryKey: ['posts'] })
+    } catch (error) {
+      console.error('Error creating playlist post:', error)
+      alert('Failed to create playlist. Please try again.')
+    }
   }
 
   if (!user) return null
@@ -106,8 +157,16 @@ export function PostComposer() {
                     ? 'text-primary bg-primary/10'
                     : 'text-muted-foreground hover:text-foreground hover:bg-card'
                 }`}
+                title="Add link"
               >
                 <LinkIcon className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setShowPlaylistDialog(true)}
+                className="p-2 text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
+                title="Create playlist"
+              >
+                <Music className="w-5 h-5" />
               </button>
             </div>
 
@@ -126,6 +185,13 @@ export function PostComposer() {
           </div>
         </div>
       </div>
+
+      {/* Playlist Dialog */}
+      <CreatePlaylistDialog
+        isOpen={showPlaylistDialog}
+        onClose={() => setShowPlaylistDialog(false)}
+        onSubmit={handlePlaylistSubmit}
+      />
     </div>
   )
 }

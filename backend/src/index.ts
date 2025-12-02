@@ -3,6 +3,8 @@ import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
+import fastifyStatic from '@fastify/static';
+import { join } from 'path';
 import { prisma } from './utils/prisma.js';
 import { connectRedis } from './utils/redis.js';
 import { setupAuthMiddleware } from './middleware/auth.middleware.js';
@@ -17,6 +19,7 @@ import { commentRoutes } from './routes/comment.routes.js';
 import { notificationRoutes } from './routes/notification.routes.js';
 import { searchRoutes } from './routes/search.routes.js';
 import { playlistRoutes } from './routes/playlist.routes.js';
+import { uploadRoutes } from './routes/upload.routes.js';
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -61,6 +64,12 @@ async function buildServer() {
     timeWindow: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10),
   });
 
+  // Serve static files (uploads)
+  await fastify.register(fastifyStatic, {
+    root: join(process.cwd(), 'uploads'),
+    prefix: '/uploads/',
+  });
+
   // Setup authentication middleware
   setupAuthMiddleware(fastify);
 
@@ -88,6 +97,7 @@ async function buildServer() {
   await fastify.register(notificationRoutes, { prefix: '/api/notifications' });
   await fastify.register(searchRoutes, { prefix: '/api/search' });
   await fastify.register(playlistRoutes, { prefix: '/api/playlists' });
+  await fastify.register(uploadRoutes, { prefix: '/api/upload' });
 
   // Global error handler
   fastify.setErrorHandler((error: Error & { validation?: unknown; statusCode?: number }, request, reply) => {

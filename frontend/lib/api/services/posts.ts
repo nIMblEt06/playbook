@@ -1,10 +1,11 @@
 import { apiClient } from '../client'
 import type { Post, CreatePostRequest, Comment, PaginatedResponse } from '../../types'
+import { transformPaginatedResponse, type BackendPaginatedResponse } from '../utils'
 
 export const postsService = {
   async getPosts(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Post>> {
-    const response = await apiClient.get<PaginatedResponse<Post>>('/api/posts', { params })
-    return response.data
+    const response = await apiClient.get<BackendPaginatedResponse<Post>>('/api/posts', { params })
+    return transformPaginatedResponse(response.data)
   },
 
   async getPost(id: string): Promise<Post> {

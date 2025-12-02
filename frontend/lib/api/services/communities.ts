@@ -1,10 +1,11 @@
 import { apiClient } from '../client'
 import type { Community, CreateCommunityRequest, Post, PaginatedResponse } from '../../types'
+import { transformPaginatedResponse, type BackendPaginatedResponse } from '../utils'
 
 export const communitiesService = {
   async getCommunities(params?: { type?: 'artist' | 'user'; page?: number; limit?: number }): Promise<PaginatedResponse<Community>> {
-    const response = await apiClient.get<PaginatedResponse<Community>>('/api/communities', { params })
-    return response.data
+    const response = await apiClient.get<BackendPaginatedResponse<Community>>('/api/communities', { params })
+    return transformPaginatedResponse(response.data)
   },
 
   async getCommunity(slug: string): Promise<Community> {
@@ -23,8 +24,8 @@ export const communitiesService = {
   },
 
   async getCommunityPosts(slug: string, params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Post>> {
-    const response = await apiClient.get<PaginatedResponse<Post>>(`/api/communities/${slug}/posts`, { params })
-    return response.data
+    const response = await apiClient.get<BackendPaginatedResponse<Post>>(`/api/communities/${slug}/posts`, { params })
+    return transformPaginatedResponse(response.data)
   },
 
   async joinCommunity(slug: string): Promise<void> {
