@@ -92,6 +92,7 @@ export async function getArtistById(id: string): Promise<Artist | null> {
 
 /**
  * Get artist by Spotify ID with stats
+ * Artist ratings are aggregated from their album ratings
  */
 export async function getArtistBySpotifyId(
   spotifyId: string
@@ -100,21 +101,27 @@ export async function getArtistBySpotifyId(
   const artist = await getOrCreateArtist(spotifyId);
   if (!artist) return null;
 
-  // Get album count
-  const albumCount = await prisma.album.count({
+  // Get album count and aggregate rating stats from albums
+  const albumStats = await prisma.album.aggregate({
     where: { artistId: artist.id },
+    _count: { id: true },
+    _sum: { ratingSum: true, ratingCount: true },
   });
 
-  // Calculate average rating from reviews
-  let averageRating: number | null = null;
-  if (artist.ratingCount > 0) {
-    averageRating = artist.ratingSum / artist.ratingCount;
-  }
+  const albumCount = albumStats._count.id;
+  const totalRatingSum = albumStats._sum.ratingSum || 0;
+  const totalRatingCount = albumStats._sum.ratingCount || 0;
+
+  // Calculate average rating from all album ratings
+  const averageRating = totalRatingCount > 0 ? totalRatingSum / totalRatingCount : null;
 
   return {
     ...artist,
     averageRating,
     albumCount,
+    // Override with aggregated values
+    ratingSum: totalRatingSum,
+    ratingCount: totalRatingCount,
   };
 }
 

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
 import { discoverService } from '../api/services/discover'
 
 export function useHomepageData() {
@@ -65,5 +65,20 @@ export function usePopularTags(limit: number = 20) {
     queryKey: ['discover', 'popular-tags', limit],
     queryFn: () => discoverService.getPopularTags(limit),
     staleTime: 1000 * 60 * 30, // 30 minutes
+  })
+}
+
+export function useAllReviews(limit: number = 20) {
+  return useInfiniteQuery({
+    queryKey: ['discover', 'all-reviews', limit],
+    queryFn: ({ pageParam = 1 }) => discoverService.getAllReviews(pageParam, limit),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      if (lastPage.hasMore) {
+        return lastPage.page + 1
+      }
+      return undefined
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
   })
 }

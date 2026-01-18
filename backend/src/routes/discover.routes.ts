@@ -1,5 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import * as discoverService from '../services/discover.service.js';
+import * as reviewService from '../services/review.service.js';
 import { z } from 'zod';
 
 const paginationSchema = z.object({
@@ -9,6 +10,11 @@ const paginationSchema = z.object({
 const popularReviewsSchema = z.object({
   timeframe: z.enum(['day', 'week', 'month']).default('week'),
   limit: z.coerce.number().int().min(1).max(20).default(10),
+});
+
+const reviewsPaginatedSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
 export async function discoverRoutes(fastify: FastifyInstance) {
@@ -144,6 +150,24 @@ export async function discoverRoutes(fastify: FastifyInstance) {
         );
 
         return reply.send({ activity });
+      } catch (error) {
+        if (error instanceof Error) {
+          return reply.code(400).send({ error: error.message });
+        }
+        throw error;
+      }
+    }
+  );
+
+  // GET /api/discover/reviews - Get all reviews paginated, ordered by upvotes desc
+  fastify.get<{ Querystring: z.infer<typeof reviewsPaginatedSchema> }>(
+    '/reviews',
+    async (request, reply) => {
+      try {
+        const query = reviewsPaginatedSchema.parse(request.query);
+        const result = await reviewService.getAllReviewsPaginated(query.page, query.limit);
+
+        return reply.send(result);
       } catch (error) {
         if (error instanceof Error) {
           return reply.code(400).send({ error: error.message });

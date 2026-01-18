@@ -463,6 +463,62 @@ export async function getArtist(artistId: string, userId?: string): Promise<Spot
 
 
 /**
+ * Get an artist's albums from Spotify
+ */
+export async function getArtistAlbums(
+  artistId: string,
+  limit: number = 50,
+  offset: number = 0,
+  includeGroups: string = 'album,single,ep,compilation'
+): Promise<SearchResult<SpotifyAlbum>> {
+  const cacheKey = `spotify:artist-albums:${artistId}:${limit}:${offset}:${includeGroups}`;
+  const cached = await getFromCache<SearchResult<SpotifyAlbum>>(cacheKey);
+  if (cached) return cached;
+
+  const token = await getSpotifyToken();
+  if (!token) {
+    throw new Error('Unable to authenticate with Spotify');
+  }
+
+  try {
+    const response = await fetch(
+      `${SPOTIFY_API_URL}/artists/${artistId}/albums?` +
+        new URLSearchParams({
+          include_groups: includeGroups,
+          market: 'US',
+          limit: limit.toString(),
+          offset: offset.toString(),
+        }),
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('Spotify artist albums error:', error);
+      throw new Error(`Spotify API error: ${response.status}`);
+    }
+
+    const data = await response.json() as SpotifySearchResponse<SpotifyAlbum>;
+
+    const result: SearchResult<SpotifyAlbum> = {
+      items: data.items,
+      total: data.total,
+      page: Math.floor(offset / limit) + 1,
+      limit,
+      hasMore: data.next !== null,
+    };
+
+    await setCache(cacheKey, result, CACHE_TTL);
+    return result;
+  } catch (error) {
+    console.error('Error getting artist albums:', error);
+    throw error;
+  }
+}
+
+/**
  * Get new album releases from Spotify
  */
 export async function getNewReleases(

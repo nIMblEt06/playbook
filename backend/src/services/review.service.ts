@@ -393,6 +393,83 @@ export async function getPopularReviews(
   });
 }
 
+
+// Get all reviews with pagination, ordered by upvotes descending
+export async function getAllReviewsPaginated(
+  page: number = 1,
+  limit: number = 20
+): Promise<PaginatedResult<{
+  id: string;
+  rating: number | null;
+  title: string | null;
+  content: string | null;
+  upvoteCount: number;
+  commentCount: number;
+  createdAt: Date;
+  author: {
+    id: string;
+    username: string;
+    displayName: string;
+    avatarUrl: string | null;
+    avatarType: string | null;
+    pixelAvatarId: number | null;
+  };
+  album: {
+    id: string;
+    spotifyId: string | null;
+    title: string;
+    artistName: string | null;
+    coverImageUrl: string | null;
+  } | null;
+}>> {
+  const skip = (page - 1) * limit;
+
+  const [reviews, total] = await Promise.all([
+    prisma.review.findMany({
+      where: {
+        content: { not: null }, // Only reviews with actual content
+      },
+      orderBy: [{ upvoteCount: 'desc' }, { createdAt: 'desc' }],
+      skip,
+      take: limit,
+      include: {
+        author: {
+          select: {
+            id: true,
+            username: true,
+            displayName: true,
+            avatarUrl: true,
+            avatarType: true,
+            pixelAvatarId: true,
+          },
+        },
+        album: {
+          select: {
+            id: true,
+            spotifyId: true,
+            title: true,
+            artistName: true,
+            coverImageUrl: true,
+          },
+        },
+      },
+    }),
+    prisma.review.count({
+      where: {
+        content: { not: null },
+      },
+    }),
+  ]);
+
+  return {
+    items: reviews,
+    total,
+    page,
+    limit,
+    hasMore: skip + reviews.length < total,
+  };
+}
+
 // Helper to build orderBy for reviews
 function getReviewOrderBy(sort: ReviewSortOption) {
   switch (sort) {

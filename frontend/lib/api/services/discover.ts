@@ -81,6 +81,14 @@ export interface Tag {
   useCount: number
 }
 
+export interface PaginatedReviewsResponse {
+  items: DiscoverReview[]
+  total: number
+  page: number
+  limit: number
+  hasMore: boolean
+}
+
 export const discoverService = {
   async getHomepageData(): Promise<HomepageData> {
     const response = await apiClient.get<HomepageData>('/api/discover')
@@ -135,6 +143,13 @@ export const discoverService = {
   async getPopularTags(limit: number = 20): Promise<{ tags: Tag[] }> {
     const response = await apiClient.get<{ tags: Tag[] }>('/api/discover/popular-tags', {
       params: { limit },
+    })
+    return response.data
+  },
+
+  async getAllReviews(page: number = 1, limit: number = 20): Promise<PaginatedReviewsResponse> {
+    const response = await apiClient.get<PaginatedReviewsResponse>('/api/discover/reviews', {
+      params: { page, limit },
     })
     return response.data
   },

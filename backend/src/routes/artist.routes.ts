@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import * as artistService from '../services/artist.service.js';
 import * as reviewService from '../services/review.service.js';
+import * as spotifySearchService from '../services/spotify-search.service.js';
 import { z } from 'zod';
 
 interface ArtistParams {
@@ -16,12 +17,6 @@ const reviewQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),
   sort: z.enum(['recent', 'engaged', 'rating_high', 'rating_low']).default('recent'),
-});
-
-const createReviewSchema = z.object({
-  rating: z.number().int().min(1).max(5).optional(),
-  title: z.string().max(200).optional().nullable(),
-  content: z.string().max(5000).optional().nullable(),
 });
 
 export async function artistRoutes(fastify: FastifyInstance) {
@@ -75,6 +70,44 @@ export async function artistRoutes(fastify: FastifyInstance) {
     }
   );
 
+  // GET /api/artists/:spotifyId/discography - Get artist's discography from Spotify
+  fastify.get<{ Params: ArtistParams; Querystring: z.infer<typeof paginationSchema> }>(
+    '/:spotifyId/discography',
+    async (request, reply) => {
+      try {
+        const query = paginationSchema.parse(request.query);
+        const offset = (query.page - 1) * query.limit;
+
+        // Fetch albums directly from Spotify
+        const result = await spotifySearchService.getArtistAlbums(
+          request.params.spotifyId,
+          query.limit,
+          offset
+        );
+
+        // Transform to match frontend expected format
+        const items = result.items.map((album) => ({
+          id: album.id,
+          title: album.name,
+          'primary-type': album.album_type,
+          'first-release-date': album.release_date,
+          coverArtUrl: album.images[0]?.url || null,
+        }));
+
+        return reply.send({
+          items,
+          total: result.total,
+          offset,
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          return reply.code(400).send({ error: error.message });
+        }
+        throw error;
+      }
+    }
+  );
+
   // GET /api/artists/:spotifyId/reviews - Get reviews for artist
   fastify.get<{ Params: ArtistParams; Querystring: z.infer<typeof reviewQuerySchema> }>(
     '/:spotifyId/reviews',
@@ -114,38 +147,8 @@ export async function artistRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // POST /api/artists/:spotifyId/reviews - Create or update review for artist
-  fastify.post<{ Params: ArtistParams; Body: z.infer<typeof createReviewSchema> }>(
-    '/:spotifyId/reviews',
-    { preHandler: [fastify.authenticate] },
-    async (request, reply) => {
-      try {
-        const input = createReviewSchema.parse(request.body);
-
-        // First get the artist
-        const artist = await artistService.getOrCreateArtist(request.params.spotifyId);
-        if (!artist) {
-          return reply.code(404).send({ error: 'Artist not found' });
-        }
-
-        const review = await reviewService.createOrUpdateReview({
-          authorId: request.user.userId,
-          targetType: 'artist',
-          artistId: artist.id,
-          rating: input.rating,
-          title: input.title ?? undefined,
-          content: input.content ?? undefined,
-        });
-
-        return reply.code(201).send({ review });
-      } catch (error) {
-        if (error instanceof Error) {
-          return reply.code(400).send({ error: error.message });
-        }
-        throw error;
-      }
-    }
-  );
+  // NOTE: Direct artist ratings/reviews are disabled
+  // Artist ratings are aggregated from their album ratings
 
   // GET /api/artists/search - Search artists locally
   fastify.get<{ Querystring: { q: string; limit?: string } }>(

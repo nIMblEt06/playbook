@@ -78,13 +78,13 @@ export async function albumRoutes(fastify: FastifyInstance) {
         const query = reviewQuerySchema.parse(request.query);
 
         // First get the album
-        const album = await albumService.getOrCreateAlbum(request.params.spotifyId);
-        if (!album) {
+        const albumResult = await albumService.getOrCreateAlbum(request.params.spotifyId);
+        if (!albumResult) {
           return reply.code(404).send({ error: 'Album not found' });
         }
 
         const result = await reviewService.getAlbumReviews(
-          album.id,
+          albumResult.album.id,
           query.page,
           query.limit,
           query.sort,
@@ -110,15 +110,15 @@ export async function albumRoutes(fastify: FastifyInstance) {
         const input = createReviewSchema.parse(request.body);
 
         // First get the album
-        const album = await albumService.getOrCreateAlbum(request.params.spotifyId);
-        if (!album) {
+        const albumResult = await albumService.getOrCreateAlbum(request.params.spotifyId);
+        if (!albumResult) {
           return reply.code(404).send({ error: 'Album not found' });
         }
 
         const review = await reviewService.createOrUpdateReview({
           authorId: request.user.userId,
           targetType: 'album',
-          albumId: album.id,
+          albumId: albumResult.album.id,
           rating: input.rating,
           title: input.title ?? undefined,
           content: input.content ?? undefined,
@@ -143,14 +143,14 @@ export async function albumRoutes(fastify: FastifyInstance) {
         const input = ratingSchema.parse(request.body);
 
         // First get the album
-        const album = await albumService.getOrCreateAlbum(request.params.spotifyId);
-        if (!album) {
+        const albumResult = await albumService.getOrCreateAlbum(request.params.spotifyId);
+        if (!albumResult) {
           return reply.code(404).send({ error: 'Album not found' });
         }
 
         const rating = await reviewService.rateAlbum(
           request.user.userId,
-          album.id,
+          albumResult.album.id,
           input.value
         );
 
@@ -171,12 +171,12 @@ export async function albumRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       try {
         // First get the album
-        const album = await albumService.getOrCreateAlbum(request.params.spotifyId);
-        if (!album) {
+        const albumResult = await albumService.getOrCreateAlbum(request.params.spotifyId);
+        if (!albumResult) {
           return reply.code(404).send({ error: 'Album not found' });
         }
 
-        await reviewService.removeRating(request.user.userId, 'album', album.id);
+        await reviewService.removeRating(request.user.userId, 'album', albumResult.album.id);
 
         return reply.send({ success: true });
       } catch (error) {

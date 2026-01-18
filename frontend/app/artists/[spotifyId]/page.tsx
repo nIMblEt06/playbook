@@ -225,7 +225,7 @@ export default function ArtistPage() {
                 <Link
                   key={release.id}
                   href={`/album/${release.id}`}
-                  className="group"
+                  className="group block"
                 >
                   <div className="aspect-square rounded-lg overflow-hidden bg-muted mb-2 relative">
                     {release.coverArtUrl ? (

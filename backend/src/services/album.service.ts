@@ -1,6 +1,7 @@
 import { prisma } from '../utils/prisma.js';
 import type { Album, Prisma } from '@prisma/client';
 import * as spotifySearchService from './spotify-search.service.js';
+import * as artistService from './artist.service.js';
 
 export interface AlbumWithStats extends Album {
   averageRating: number | null;
@@ -13,11 +14,13 @@ export interface AlbumWithStats extends Album {
 /**
  * Get or create an album by Spotify ID
  */
-export async function getOrCreateAlbum(spotifyId: string): Promise<Album | null> {
+export async function getOrCreateAlbum(spotifyId: string): Promise<{ album: Album; primaryArtistSpotifyId: string | null } | null> {
   // Check if album exists locally
   let album = await prisma.album.findUnique({
     where: { spotifyId },
   });
+
+  let primaryArtistSpotifyId: string | null = null;
 
   // If not found locally, fetch from Spotify and create
   if (!album) {
@@ -40,10 +43,20 @@ export async function getOrCreateAlbum(spotifyId: string): Promise<Album | null>
           }
         }
 
+        // Get primary artist's Spotify ID and create/get the artist
+        primaryArtistSpotifyId = spotifyAlbum.artists[0]?.id || null;
+        let artistId: string | null = null;
+
+        if (primaryArtistSpotifyId) {
+          const artist = await artistService.getOrCreateArtist(primaryArtistSpotifyId);
+          artistId = artist?.id || null;
+        }
+
         album = await createAlbumFromSpotify({
           spotifyId: spotifyAlbum.id,
           title: spotifyAlbum.name,
           artistName: spotifyAlbum.artists.map(a => a.name).join(', '),
+          artistId,
           coverImageUrl: spotifyAlbum.images[0]?.url || null,
           releaseDate,
           releaseYear,
@@ -56,9 +69,38 @@ export async function getOrCreateAlbum(spotifyId: string): Promise<Album | null>
       console.error('Error fetching album from Spotify:', error);
       return null;
     }
+  } else {
+    // Album exists, fetch from Spotify to get artist ID
+    try {
+      const spotifyAlbum = await spotifySearchService.getAlbum(spotifyId);
+      primaryArtistSpotifyId = spotifyAlbum?.artists[0]?.id || null;
+
+      // If album doesn't have artistId linked, link it now
+      if (!album.artistId && primaryArtistSpotifyId) {
+        const artist = await artistService.getOrCreateArtist(primaryArtistSpotifyId);
+        if (artist) {
+          await prisma.album.update({
+            where: { id: album.id },
+            data: { artistId: artist.id },
+          });
+          album = { ...album, artistId: artist.id };
+        }
+      }
+    } catch (error) {
+      // If we can't fetch from Spotify, try to get from linked artist
+      if (album.artistId) {
+        const artist = await prisma.artist.findUnique({
+          where: { id: album.artistId },
+          select: { spotifyId: true },
+        });
+        primaryArtistSpotifyId = artist?.spotifyId || null;
+      }
+    }
   }
 
-  return album;
+  if (!album) return null;
+
+  return { album, primaryArtistSpotifyId };
 }
 
 /**
@@ -68,6 +110,7 @@ export async function createAlbumFromSpotify(data: {
   spotifyId: string;
   title: string;
   artistName: string;
+  artistId?: string | null;
   coverImageUrl?: string | null;
   releaseDate?: Date | null;
   releaseYear?: number | null;
@@ -84,6 +127,7 @@ export async function createAlbumFromSpotify(data: {
       spotifyId: data.spotifyId,
       title: data.title,
       artistName: data.artistName,
+      artistId: data.artistId,
       coverImageUrl: data.coverImageUrl,
       releaseDate: data.releaseDate,
       releaseYear: data.releaseYear,
@@ -98,6 +142,7 @@ export async function createAlbumFromSpotify(data: {
     update: {
       title: data.title,
       artistName: data.artistName,
+      artistId: data.artistId || undefined,
       coverImageUrl: data.coverImageUrl || undefined,
       releaseDate: data.releaseDate,
       releaseYear: data.releaseYear,
@@ -137,8 +182,10 @@ export async function getAlbumBySpotifyId(
   userId?: string
 ): Promise<AlbumWithStats | null> {
   // Get the album
-  const album = await getOrCreateAlbum(spotifyId);
-  if (!album) return null;
+  const result = await getOrCreateAlbum(spotifyId);
+  if (!result) return null;
+
+  const { album, primaryArtistSpotifyId } = result;
 
   // Get rating distribution from standalone ratings
   const ratingCounts = await prisma.rating.groupBy({
@@ -150,7 +197,7 @@ export async function getAlbumBySpotifyId(
   // Get rating distribution from reviews
   const reviewRatingCounts = await prisma.review.groupBy({
     by: ['rating'],
-    where: { 
+    where: {
       albumId: album.id,
       rating: { not: null },
     },
@@ -216,16 +263,6 @@ export async function getAlbumBySpotifyId(
     }
   }
 
-  // Get artist Spotify ID if linked
-  let artistSpotifyId: string | null = null;
-  if (album.artistId) {
-    const artist = await prisma.artist.findUnique({
-      where: { id: album.artistId },
-      select: { spotifyId: true },
-    });
-    artistSpotifyId = artist?.spotifyId || null;
-  }
-
   return {
     ...album,
     averageRating,
@@ -233,7 +270,7 @@ export async function getAlbumBySpotifyId(
     ratingDistribution,
     userRating,
     userReview,
-    artistSpotifyId,
+    artistSpotifyId: primaryArtistSpotifyId,
   };
 }
 
