@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { X, Download, Share2, Loader2, Check } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import type { DiscoverReview } from '@/lib/api/services/discover'
 import { ReviewStoryTemplate } from './review-story-template'
 
@@ -13,20 +13,40 @@ interface ShareStoryModalProps {
 
 export function ShareStoryModal({ review, isOpen, onClose }: ShareStoryModalProps) {
   const [isGenerating, setIsGenerating] = useState(false)
-  const [generatedImage, setGeneratedImage] = useState<string | null>(null)
-  const [copySuccess, setCopySuccess] = useState(false)
+  const [hasShared, setHasShared] = useState(false)
   const templateRef = useRef<HTMLDivElement>(null)
 
-  // Reset state when modal opens/closes
-  useEffect(() => {
-    if (!isOpen) {
-      setGeneratedImage(null)
-      setIsGenerating(false)
-      setCopySuccess(false)
-    }
-  }, [isOpen])
+  const handleDownload = useCallback((dataUrl: string) => {
+    const link = document.createElement('a')
+    link.download = `trackd-review-${review.album?.title?.replace(/\s+/g, '-').toLowerCase() || 'share'}.png`
+    link.href = dataUrl
+    link.click()
+  }, [review.album?.title])
 
-  const generateImage = useCallback(async () => {
+  const handleShare = useCallback(async (dataUrl: string) => {
+    try {
+      // Convert data URL to blob
+      const response = await fetch(dataUrl)
+      const blob = await response.blob()
+      const file = new File([blob], 'trackd-review.png', { type: 'image/png' })
+
+      if (navigator.share && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `My review of ${review.album?.title}`,
+          text: `Check out my review on Trackd!`,
+        })
+      } else {
+        // Fallback - just download
+        handleDownload(dataUrl)
+      }
+    } catch (error) {
+      // User cancelled or error - silently fail
+      console.error('Share error:', error)
+    }
+  }, [review.album?.title, handleDownload])
+
+  const generateAndShare = useCallback(async () => {
     if (!templateRef.current) {
       console.error('Template ref not found')
       return
@@ -73,64 +93,39 @@ export function ShareStoryModal({ review, isOpen, onClose }: ShareStoryModalProp
       }
 
       const dataUrl = canvas.toDataURL('image/png', 1.0)
-      setGeneratedImage(dataUrl)
+
+      // Immediately trigger share
+      await handleShare(dataUrl)
+      setHasShared(true)
+
+      // Close modal after sharing
+      onClose()
     } catch (error) {
       console.error('Error generating image:', error)
       alert('Failed to generate image. Please try again.')
     } finally {
       setIsGenerating(false)
     }
-  }, [])
+  }, [handleShare, onClose])
 
-  const handleDownload = useCallback(() => {
-    if (!generatedImage) return
-
-    const link = document.createElement('a')
-    link.download = `trackd-review-${review.album?.title?.replace(/\s+/g, '-').toLowerCase() || 'share'}.png`
-    link.href = generatedImage
-    link.click()
-  }, [generatedImage, review.album?.title])
-
-  const handleShare = useCallback(async () => {
-    if (!generatedImage) return
-
-    try {
-      // Convert data URL to blob
-      const response = await fetch(generatedImage)
-      const blob = await response.blob()
-      const file = new File([blob], 'trackd-review.png', { type: 'image/png' })
-
-      if (navigator.share && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: `My review of ${review.album?.title}`,
-          text: `Check out my review on Trackd!`,
-        })
-      } else {
-        // Fallback - just download
-        handleDownload()
-      }
-    } catch (error) {
-      // User cancelled or error - silently fail
-      console.error('Share error:', error)
+  // Auto-generate and share when modal opens
+  useEffect(() => {
+    if (isOpen && !isGenerating && !hasShared) {
+      // Small delay to ensure the template is rendered
+      const timer = setTimeout(() => {
+        generateAndShare()
+      }, 100)
+      return () => clearTimeout(timer)
     }
-  }, [generatedImage, review.album?.title, handleDownload])
+  }, [isOpen, isGenerating, hasShared, generateAndShare])
 
-  const handleCopyImage = useCallback(async () => {
-    if (!generatedImage) return
-
-    try {
-      const response = await fetch(generatedImage)
-      const blob = await response.blob()
-      await navigator.clipboard.write([
-        new ClipboardItem({ 'image/png': blob })
-      ])
-      setCopySuccess(true)
-      setTimeout(() => setCopySuccess(false), 2000)
-    } catch (error) {
-      console.error('Copy error:', error)
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setIsGenerating(false)
+      setHasShared(false)
     }
-  }, [generatedImage])
+  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -142,129 +137,21 @@ export function ShareStoryModal({ review, isOpen, onClose }: ShareStoryModalProp
         onClick={onClose}
       />
 
-      {/* Modal Content */}
-      <div className="relative w-full max-w-md bg-background border-2 border-border shadow-xl max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b-2 border-border flex-shrink-0">
-          <h2 className="text-lg font-bold">Share to Story</h2>
-          <button
-            onClick={onClose}
-            className="p-1 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+      {/* Modal Content - Just a loading indicator */}
+      <div className="relative bg-background border-2 border-border shadow-xl p-6 flex flex-col items-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary mb-3" />
+        <p className="text-sm text-muted-foreground">Preparing your story...</p>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {/* Story Preview */}
-          <div className="relative mb-4">
-            <div className="aspect-[9/16] w-full max-w-[280px] mx-auto bg-black overflow-hidden border border-border">
-              {generatedImage ? (
-                // Show generated image
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={generatedImage}
-                  alt="Generated story"
-                  className="w-full h-full object-contain"
-                />
-              ) : (
-                // Show live preview (scaled down)
-                <div
-                  ref={templateRef}
-                  className="w-full h-full"
-                  style={{
-                    transform: 'scale(0.259)',
-                    transformOrigin: 'top left',
-                    width: '1080px',
-                    height: '1920px',
-                  }}
-                >
-                  <ReviewStoryTemplate review={review} />
-                </div>
-              )}
-
-              {/* Loading overlay */}
-              {isGenerating && (
-                <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
-                  <div className="text-center">
-                    <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-2" />
-                    <p className="text-sm text-white">Generating image...</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Instructions */}
-          <p className="text-sm text-muted-foreground text-center mb-4">
-            {generatedImage
-              ? 'Your story is ready! Download or share it directly to Instagram.'
-              : 'Preview your story!.'}
-          </p>
-
-          {/* Action Buttons */}
-          <div className="space-y-3">
-            {!generatedImage ? (
-              <button
-                onClick={generateImage}
-                disabled={isGenerating}
-                className="w-full btn-primary py-3 flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  'Generate Image'
-                )}
-              </button>
-            ) : (
-              <>
-                {/* Share Button - Primary action */}
-                <button
-                  onClick={handleShare}
-                  className="w-full btn-primary py-3 flex items-center justify-center gap-2"
-                >
-                  <Share2 className="w-4 h-4" />
-                  Share to Instagram
-                </button>
-
-                {/* Secondary actions */}
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleDownload}
-                    className="flex-1 py-2.5 border-2 border-border hover:border-primary text-foreground flex items-center justify-center gap-2 transition-colors"
-                  >
-                    <Download className="w-4 h-4" />
-                    Download
-                  </button>
-                  <button
-                    onClick={handleCopyImage}
-                    className="flex-1 py-2.5 border-2 border-border hover:border-primary text-foreground flex items-center justify-center gap-2 transition-colors"
-                  >
-                    {copySuccess ? (
-                      <>
-                        <Check className="w-4 h-4 text-green-500" />
-                        Copied!
-                      </>
-                    ) : (
-                      'Copy Image'
-                    )}
-                  </button>
-                </div>
-
-                {/* Regenerate option */}
-                <button
-                  onClick={() => setGeneratedImage(null)}
-                  className="w-full text-sm text-muted-foreground hover:text-foreground text-center py-2"
-                >
-                  Regenerate preview
-                </button>
-              </>
-            )}
-          </div>
+        {/* Hidden template for generation */}
+        <div
+          ref={templateRef}
+          className="absolute -left-[9999px] -top-[9999px]"
+          style={{
+            width: '1080px',
+            height: '1920px',
+          }}
+        >
+          <ReviewStoryTemplate review={review} />
         </div>
       </div>
     </div>
