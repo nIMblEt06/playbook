@@ -1,4 +1,5 @@
 import { redis } from '../utils/redis.js';
+import * as spotifyService from './spotify-search.service.js';
 
 // Cache TTL for link metadata (1 hour)
 const METADATA_CACHE_TTL = 3600;
@@ -193,7 +194,7 @@ async function setCache(key: string, value: unknown, ttl: number): Promise<void>
 
 /**
  * Fetch metadata for a parsed link
- * Returns basic parsed info (can be extended with Spotify API for full metadata)
+ * Uses Spotify API for Spotify links to get real metadata
  */
 export async function fetchLinkMetadata(url: string): Promise<LinkMetadata | null> {
   const parsed = parseUrl(url);
@@ -209,27 +210,59 @@ export async function fetchLinkMetadata(url: string): Promise<LinkMetadata | nul
 
   let metadata: LinkMetadata | null = null;
 
-  // For all sources, return a placeholder with parsed info
-  // Can be extended with Spotify API for full metadata
-  if (parsed.source !== 'unknown') {
+  // Fetch real metadata from Spotify API for Spotify links
+  if (parsed.source === 'spotify' && parsed.externalId) {
+    try {
+      if (parsed.type === 'track') {
+        const track = await spotifyService.getTrack(parsed.externalId);
+        if (track) {
+          metadata = {
+            title: track.name,
+            artist: track.artists.map((a) => a.name).join(', '),
+            albumName: track.album?.name,
+            coverArtUrl: track.album?.images?.[0]?.url,
+            type: parsed.type,
+            source: parsed.source,
+            duration: track.duration_ms,
+          };
+        }
+      } else if (parsed.type === 'album') {
+        const album = await spotifyService.getAlbum(parsed.externalId);
+        if (album) {
+          metadata = {
+            title: album.name,
+            artist: album.artists.map((a) => a.name).join(', '),
+            coverArtUrl: album.images?.[0]?.url,
+            type: parsed.type,
+            source: parsed.source,
+            releaseDate: album.release_date,
+          };
+        }
+      } else if (parsed.type === 'artist') {
+        const artist = await spotifyService.getArtist(parsed.externalId);
+        if (artist) {
+          metadata = {
+            title: artist.name,
+            artist: artist.name,
+            coverArtUrl: artist.images?.[0]?.url,
+            type: parsed.type,
+            source: parsed.source,
+          };
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to fetch Spotify metadata:', error);
+    }
+  }
+
+  // Fallback for non-Spotify sources or if Spotify API failed
+  if (!metadata && parsed.source !== 'unknown') {
     metadata = {
-      title: 'Music Link',
+      title: `${getPlatformDisplayName(parsed.source)} ${parsed.type.charAt(0).toUpperCase() + parsed.type.slice(1)}`,
       artist: 'Unknown',
       type: parsed.type,
       source: parsed.source,
     };
-
-    // Try to extract info from Spotify URLs (basic info from URL structure)
-    if (parsed.source === 'spotify') {
-      // Spotify URLs don't contain metadata in the URL
-      // Would need Spotify API for full metadata
-      metadata.title = `Spotify ${parsed.type.charAt(0).toUpperCase() + parsed.type.slice(1)}`;
-    }
-
-    // Try to extract info from Apple Music URLs
-    if (parsed.source === 'apple_music') {
-      metadata.title = `Apple Music ${parsed.type.charAt(0).toUpperCase() + parsed.type.slice(1)}`;
-    }
 
     // Bandcamp - can extract artist from subdomain
     if (parsed.source === 'bandcamp') {

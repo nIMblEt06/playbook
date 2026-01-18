@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { AppLayout } from '@/components/layout/app-layout'
 import { AlbumCard } from '@/components/discover/album-card'
 import { ReviewCard } from '@/components/discover/review-card'
@@ -169,8 +170,15 @@ interface ActivityItemProps {
 }
 
 function ActivityItem({ activity }: ActivityItemProps) {
+  const href = activity.community
+    ? `/community/${activity.community.slug}#post-${activity.id}`
+    : '#'
+
   return (
-    <div className="flex gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-card border border-border hover:bg-muted/50 transition-colors">
+    <Link
+      href={href}
+      className="flex gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-card border border-border hover:bg-muted/50 transition-colors"
+    >
       <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden bg-muted flex-shrink-0 flex items-center justify-center">
         {activity.user.avatarUrl ? (
           <img
@@ -196,6 +204,6 @@ function ActivityItem({ activity }: ActivityItemProps) {
           {activity.content}
         </p>
       </div>
-    </div>
+    </Link>
   )
 }

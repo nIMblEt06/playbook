@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
-import { postsService } from '../api/services/posts'
+import { postsService, type PostCommentsResponse } from '../api/services/posts'
 import type { CreatePostRequest } from '../types'
 
 export function usePosts(params?: { page?: number; limit?: number }) {
@@ -83,23 +83,56 @@ export function useSavedPosts(params?: { page?: number; limit?: number }) {
   })
 }
 
-export function useComments(postId: string) {
-  return useQuery({
-    queryKey: ['comments', postId],
+export function usePostComments(postId: string) {
+  return useQuery<PostCommentsResponse>({
+    queryKey: ['post-comments', postId],
     queryFn: () => postsService.getComments(postId),
     enabled: !!postId,
   })
 }
 
-export function useCreateComment() {
+export function useCreatePostComment() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ postId, content, parentCommentId }: { postId: string; content: string; parentCommentId?: string }) =>
-      postsService.createComment(postId, content, parentCommentId),
+    mutationFn: ({
+      postId,
+      content,
+      parentCommentId,
+    }: {
+      postId: string
+      content: string
+      parentCommentId?: string
+    }) => postsService.createComment(postId, content, parentCommentId),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['comments', variables.postId] })
-      queryClient.invalidateQueries({ queryKey: ['posts', variables.postId] })
+      queryClient.invalidateQueries({ queryKey: ['post-comments', variables.postId] })
+      queryClient.invalidateQueries({ queryKey: ['posts'] })
+      queryClient.invalidateQueries({ queryKey: ['feed'] })
+    },
+  })
+}
+
+export function useDeletePostComment() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (commentId: string) => postsService.deleteComment(commentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['post-comments'] })
+      queryClient.invalidateQueries({ queryKey: ['posts'] })
+      queryClient.invalidateQueries({ queryKey: ['feed'] })
+    },
+  })
+}
+
+export function useUpvotePostComment() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, remove }: { id: string; remove: boolean }) =>
+      remove ? postsService.removeUpvoteComment(id) : postsService.upvoteComment(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['post-comments'] })
     },
   })
 }

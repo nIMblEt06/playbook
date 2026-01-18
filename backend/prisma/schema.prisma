@@ -99,7 +99,6 @@ model Post {
   // Relations
   author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
   comments Comment[]
-  upvotes  Upvote[]  @relation("PostUpvotes")
   savedBy  SavedPost[]
 
   // Community tags (many-to-many)
@@ -169,7 +168,6 @@ model Comment {
   author        User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
   parentComment Comment?  @relation("CommentReplies", fields: [parentCommentId], references: [id])
   replies       Comment[] @relation("CommentReplies")
-  upvotes       Upvote[]  @relation("CommentUpvotes")
 
   @@index([postId])
   @@index([authorId])
@@ -299,11 +297,9 @@ model Upvote {
   createdAt DateTime @default(now())
 
   // Relations
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  post          Post?          @relation("PostUpvotes", fields: [targetId], references: [id], map: "upvote_post_fk")
-  comment       Comment?       @relation("CommentUpvotes", fields: [targetId], references: [id], map: "upvote_comment_fk")
-  review        Review?        @relation("ReviewUpvotes", fields: [targetId], references: [id], map: "upvote_review_fk")
-  reviewComment ReviewComment? @relation("ReviewCommentUpvotes", fields: [targetId], references: [id], map: "upvote_review_comment_fk")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Note: targetId references Post, Comment, Review, or ReviewComment based on targetType
+  // Foreign key constraints removed to allow polymorphic relationship
 
   @@unique([userId, targetType, targetId])
   @@index([userId])
@@ -518,7 +514,6 @@ model Review {
   track    Track?          @relation("TrackReviews", fields: [trackId], references: [id], onDelete: Cascade)
   artist   Artist?         @relation("ArtistReviews", fields: [artistId], references: [id], onDelete: Cascade)
   comments ReviewComment[]
-  upvotes  Upvote[]        @relation("ReviewUpvotes")
 
   @@unique([authorId, albumId])
   @@unique([authorId, trackId])
@@ -557,7 +552,6 @@ model ReviewComment {
   author  User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
   parent  ReviewComment?  @relation("ReviewCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies ReviewComment[] @relation("ReviewCommentReplies")
-  upvotes Upvote[]        @relation("ReviewCommentUpvotes")
 
   @@index([reviewId])
   @@index([authorId])

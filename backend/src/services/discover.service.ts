@@ -88,7 +88,7 @@ export async function getHomepageData(userId?: string): Promise<HomepageData> {
             albums.length > 0 ? albums : getRecentlyLoggedAlbums(8)
           )
         : getRecentlyLoggedAlbums(8),
-      getPopularReviews('week', 5),
+      getPopularReviews('week', 5, userId),
       userId ? getCommunityActivity(userId, 5) : Promise.resolve([]),
     ]);
 
@@ -233,20 +233,24 @@ export async function getRecentlyPlayedAlbums(
  */
 export async function getPopularReviews(
   timeframe: 'day' | 'week' | 'month' = 'week',
-  limit: number = 10
+  limit: number = 10,
+  currentUserId?: string
 ) {
-  const cacheKey = `discover:popular-reviews:${timeframe}:${limit}`;
+  // Skip cache if user is logged in to get personalized hasUpvoted
+  if (!currentUserId) {
+    const cacheKey = `discover:popular-reviews:${timeframe}:${limit}`;
+    const cached = await getFromCache<Awaited<ReturnType<typeof reviewService.getPopularReviews>>>(
+      cacheKey
+    );
+    if (cached) return cached;
 
-  // Check cache
-  const cached = await getFromCache<Awaited<ReturnType<typeof reviewService.getPopularReviews>>>(
-    cacheKey
-  );
-  if (cached) return cached;
+    const reviews = await reviewService.getPopularReviews(timeframe, limit);
+    await setCache(cacheKey, reviews, CACHE_TTL.POPULAR_REVIEWS);
+    return reviews;
+  }
 
-  const reviews = await reviewService.getPopularReviews(timeframe, limit);
-
-  await setCache(cacheKey, reviews, CACHE_TTL.POPULAR_REVIEWS);
-  return reviews;
+  // For logged-in users, fetch with hasUpvoted status
+  return reviewService.getPopularReviews(timeframe, limit, currentUserId);
 }
 
 /**

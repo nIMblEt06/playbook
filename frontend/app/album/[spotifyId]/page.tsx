@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { AppLayout } from '@/components/layout/app-layout'
 import { ReviewCard } from '@/components/discover/review-card'
+import { ReviewCommentThread } from '@/components/discover/review-comment-thread'
 import { useAlbum, useAlbumTracks, useAlbumReviews, useRateAlbum, useCreateOrUpdateReview } from '@/lib/hooks/use-albums'
 import { formatDate } from '@/lib/utils/format'
 import { PlayButton } from '@/components/player'
@@ -30,6 +31,8 @@ export default function AlbumPage() {
   const [reviewTitle, setReviewTitle] = useState('')
   const [selectedRating, setSelectedRating] = useState<number | null>(null)
   const [isTracksExpanded, setIsTracksExpanded] = useState(true)
+  const [expandedReviewId, setExpandedReviewId] = useState<string | null>(null)
+  const [highlightedReviewId, setHighlightedReviewId] = useState<string | null>(null)
 
   const { data: albumData, isLoading: albumLoading, error: albumError } = useAlbum(spotifyId)
   const { data: tracksData, isLoading: tracksLoading } = useAlbumTracks(spotifyId)
@@ -39,6 +42,36 @@ export default function AlbumPage() {
 
   const album = albumData?.album
   const tracks = tracksData?.tracks ?? []
+
+  // Handle hash-based navigation to specific review
+  useEffect(() => {
+    const handleHashNavigation = () => {
+      const hash = window.location.hash
+      if (hash.startsWith('#review-')) {
+        const reviewId = hash.replace('#review-', '')
+        setExpandedReviewId(reviewId)
+        setHighlightedReviewId(reviewId)
+
+        // Remove highlight after 3 seconds
+        setTimeout(() => setHighlightedReviewId(null), 3000)
+
+        // Scroll to review after a brief delay to ensure DOM is ready
+        setTimeout(() => {
+          const element = document.getElementById(`review-${reviewId}`)
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }
+        }, 100)
+      }
+    }
+
+    // Handle initial hash on mount
+    handleHashNavigation()
+
+    // Listen for hash changes (SPA navigation)
+    window.addEventListener('hashchange', handleHashNavigation)
+    return () => window.removeEventListener('hashchange', handleHashNavigation)
+  }, [])
 
   // Format duration from milliseconds to mm:ss
   const formatDuration = (ms: number | null) => {
@@ -442,7 +475,39 @@ export default function AlbumPage() {
           {!reviewsLoading && reviewsData?.items && reviewsData.items.length > 0 ? (
             <div className="space-y-4">
               {reviewsData.items.map((review) => (
-                <ReviewCard key={review.id} review={{...review, album: { id: album.id, spotifyId: album.spotifyId, title: album.title, artistName: album.artistName, coverImageUrl: album.coverImageUrl }}} />
+                <div
+                  key={review.id}
+                  id={`review-${review.id}`}
+                  className={`transition-all duration-300 rounded-lg ${
+                    highlightedReviewId === review.id
+                      ? 'ring-2 ring-primary bg-primary/5'
+                      : ''
+                  }`}
+                >
+                  <ReviewCard
+                    review={{
+                      ...review,
+                      album: {
+                        id: album.id,
+                        spotifyId: album.spotifyId,
+                        title: album.title,
+                        artistName: album.artistName,
+                        coverImageUrl: album.coverImageUrl,
+                      },
+                    }}
+                    onCommentClick={() =>
+                      setExpandedReviewId(
+                        expandedReviewId === review.id ? null : review.id
+                      )
+                    }
+                  />
+                  {expandedReviewId === review.id && (
+                    <ReviewCommentThread
+                      reviewId={review.id}
+                      onClose={() => setExpandedReviewId(null)}
+                    />
+                  )}
+                </div>
               ))}
             </div>
           ) : (

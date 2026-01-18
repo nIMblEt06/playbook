@@ -71,24 +71,12 @@ export default function NotificationsPage() {
         break
       case 'upvote_post':
       case 'comment':
-        if (notification.targetType === 'post') {
-          router.push(`/post/${notification.targetId}`)
-        }
-        break
       case 'upvote_comment':
       case 'reply':
-        if (notification.targetType === 'comment') {
-          // Navigate to the post containing the comment
-          // Assuming we have access to the post ID through the targetId or another field
-          router.push(`/post/${notification.targetId}`)
-        }
-        break
       case 'mention':
-        if (notification.targetType === 'post') {
-          router.push(`/post/${notification.targetId}`)
-        } else if (notification.targetType === 'comment') {
-          router.push(`/post/${notification.targetId}`)
-        }
+        // For post-related notifications, navigate to the actor's profile
+        // since the post page no longer exists (comments are inline)
+        router.push(`/profile/${notification.actor.username}`)
         break
       default:
         break

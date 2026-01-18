@@ -7,6 +7,7 @@ import type { Post } from '@/lib/types'
 import { useUpvotePost, useSavePost } from '@/lib/hooks/use-posts'
 import { formatDistanceToNow } from 'date-fns'
 import { useState } from 'react'
+import { PostCommentThread } from './post-comment-thread'
 
 interface PostCardProps {
   post: Post
@@ -16,6 +17,7 @@ export function PostCard({ post }: PostCardProps) {
   const [hasUpvoted, setHasUpvoted] = useState(post.hasUpvoted || false)
   const [hasSaved, setHasSaved] = useState(post.hasSaved || false)
   const [upvoteCount, setUpvoteCount] = useState(post.upvoteCount)
+  const [showComments, setShowComments] = useState(false)
 
   const upvoteMutation = useUpvotePost()
   const saveMutation = useSavePost()
@@ -34,12 +36,22 @@ export function PostCard({ post }: PostCardProps) {
   }
 
   const handleShare = async () => {
-    const url = `${window.location.origin}/post/${post.id}`
+    // Share the post content directly since there's no dedicated post page
+    const shareText = `${post.content.slice(0, 100)}${post.content.length > 100 ? '...' : ''}`
+    const url = window.location.href
     try {
-      await navigator.clipboard.writeText(url)
-      // TODO: Show toast notification
+      if (navigator.share) {
+        await navigator.share({
+          title: `Post by ${post.author.displayName}`,
+          text: shareText,
+          url: url,
+        })
+      } else {
+        await navigator.clipboard.writeText(`${shareText}\n\n${url}`)
+        // TODO: Show toast notification
+      }
     } catch (err) {
-      console.error('Failed to copy:', err)
+      console.error('Failed to share:', err)
     }
   }
 
@@ -90,11 +102,9 @@ export function PostCard({ post }: PostCardProps) {
           </div>
 
           {/* Post Content */}
-          <Link href={`/post/${post.id}`} className="block">
-            <p className="text-sm sm:text-base text-foreground-muted leading-relaxed mb-3 sm:mb-4 whitespace-pre-wrap break-words">
-              {post.content}
-            </p>
-          </Link>
+          <p className="text-sm sm:text-base text-foreground-muted leading-relaxed mb-3 sm:mb-4 whitespace-pre-wrap break-words">
+            {post.content}
+          </p>
 
           {/* Music Link Card */}
           {post.linkUrl && (
@@ -173,15 +183,19 @@ export function PostCard({ post }: PostCardProps) {
                 <span className="hidden xs:inline">{upvoteCount}</span>
                 <span className="xs:hidden">{upvoteCount}</span>
               </button>
-              <Link
-                href={`/post/${post.id}`}
-                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 sm:py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-card transition-colors min-h-[44px] sm:min-h-0"
+              <button
+                onClick={() => setShowComments(!showComments)}
+                className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 sm:py-1.5 text-xs font-medium transition-colors min-h-[44px] sm:min-h-0 ${
+                  showComments
+                    ? 'text-primary bg-primary/10'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-card'
+                }`}
                 aria-label="View comments"
               >
                 <MessageCircle className="w-4 h-4 sm:w-4 sm:h-4" />
                 <span className="hidden xs:inline">{post.commentCount}</span>
                 <span className="xs:hidden">{post.commentCount}</span>
-              </Link>
+              </button>
               <button
                 onClick={handleSave}
                 className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 sm:py-1.5 text-xs font-medium transition-colors min-h-[44px] sm:min-h-0 ${
@@ -202,6 +216,14 @@ export function PostCard({ post }: PostCardProps) {
               </button>
             </div>
           </div>
+
+          {/* Inline Comment Thread */}
+          {showComments && (
+            <PostCommentThread
+              postId={post.id}
+              onClose={() => setShowComments(false)}
+            />
+          )}
         </div>
       </div>
     </article>

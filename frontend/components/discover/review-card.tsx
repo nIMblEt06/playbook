@@ -1,17 +1,34 @@
 'use client'
 
+import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Star, ThumbsUp, MessageCircle, Music, User } from 'lucide-react'
 import type { DiscoverReview } from '@/lib/api/services/discover'
 import { formatDistanceToNow } from '@/lib/utils/format'
+import { useUpvoteReview } from '@/lib/hooks/use-reviews'
 
 interface ReviewCardProps {
   review: DiscoverReview
   compact?: boolean
+  onCommentClick?: () => void
 }
 
-export function ReviewCard({ review, compact = false }: ReviewCardProps) {
+export function ReviewCard({ review, compact = false, onCommentClick }: ReviewCardProps) {
+  const [hasUpvoted, setHasUpvoted] = useState(review.hasUpvoted || false)
+  const [upvoteCount, setUpvoteCount] = useState(review.upvoteCount)
+
+  const upvoteMutation = useUpvoteReview()
+
+  const handleUpvote = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const newUpvoted = !hasUpvoted
+    setHasUpvoted(newUpvoted)
+    setUpvoteCount((prev) => (newUpvoted ? prev + 1 : prev - 1))
+    upvoteMutation.mutate({ id: review.id, remove: !newUpvoted })
+  }
+
   const renderStars = (rating: number) => {
     return (
       <div className="flex items-center gap-0.5">
@@ -32,7 +49,7 @@ export function ReviewCard({ review, compact = false }: ReviewCardProps) {
   if (compact) {
     return (
       <Link
-        href={`/review/${review.id}`}
+        href={`/album/${review.album?.spotifyId}#review-${review.id}`}
         className="flex gap-3 p-3 rounded-lg bg-card hover:bg-muted/50 transition-colors border border-border"
       >
         {/* Album Cover */}
@@ -71,7 +88,7 @@ export function ReviewCard({ review, compact = false }: ReviewCardProps) {
   }
 
   return (
-    <div className="bg-card rounded-lg border border-border p-4">
+    <div className="bg-card rounded-lg border border-border p-4 flex flex-col">
       {/* Header - Album info */}
       <div className="flex gap-3 mb-3">
         <Link
@@ -124,7 +141,7 @@ export function ReviewCard({ review, compact = false }: ReviewCardProps) {
       )}
 
       {/* Footer - Author and stats */}
-      <div className="flex items-center justify-between text-sm">
+      <div className="flex items-center justify-between text-sm mt-auto pt-3">
         <Link
           href={`/profile/${review.author.username}`}
           className="flex items-center gap-2 hover:text-primary transition-colors"
@@ -149,15 +166,38 @@ export function ReviewCard({ review, compact = false }: ReviewCardProps) {
           </span>
         </Link>
 
-        <div className="flex items-center gap-4 text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <ThumbsUp className="w-3.5 h-3.5" />
-            {review.upvoteCount}
-          </span>
-          <span className="flex items-center gap-1">
-            <MessageCircle className="w-3.5 h-3.5" />
-            {review.commentCount}
-          </span>
+        <div className="flex items-center gap-3 text-muted-foreground">
+          <button
+            onClick={handleUpvote}
+            className={`flex items-center gap-1 px-2 py-1 rounded transition-colors ${
+              hasUpvoted
+                ? 'text-primary bg-primary/10'
+                : 'hover:text-foreground hover:bg-muted'
+            }`}
+            aria-label={hasUpvoted ? 'Remove upvote' : 'Upvote review'}
+          >
+            <ThumbsUp className={`w-3.5 h-3.5 ${hasUpvoted ? 'fill-current' : ''}`} />
+            <span>{upvoteCount}</span>
+          </button>
+          {onCommentClick ? (
+            <button
+              onClick={onCommentClick}
+              className="flex items-center gap-1 px-2 py-1 rounded hover:text-foreground hover:bg-muted transition-colors"
+              aria-label="View comments"
+            >
+              <MessageCircle className="w-3.5 h-3.5" />
+              <span>{review.commentCount}</span>
+            </button>
+          ) : (
+            <Link
+              href={`/album/${review.album?.spotifyId}#review-${review.id}`}
+              className="flex items-center gap-1 px-2 py-1 rounded hover:text-foreground hover:bg-muted transition-colors"
+              aria-label="View comments"
+            >
+              <MessageCircle className="w-3.5 h-3.5" />
+              <span>{review.commentCount}</span>
+            </Link>
+          )}
           <span className="text-xs">
             {formatDistanceToNow(new Date(review.createdAt))}
           </span>

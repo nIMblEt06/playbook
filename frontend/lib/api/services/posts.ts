@@ -1,6 +1,35 @@
 import { apiClient } from '../client'
-import type { Post, CreatePostRequest, Comment, PaginatedResponse } from '../../types'
+import type { Post, CreatePostRequest, PaginatedResponse } from '../../types'
 import { transformPaginatedResponse, type BackendPaginatedResponse } from '../utils'
+
+export interface PostComment {
+  id: string
+  content: string
+  createdAt: string
+  postId: string
+  upvoteCount: number
+  hasUpvoted: boolean
+  author: {
+    id: string
+    username: string
+    displayName: string
+    avatarUrl: string | null
+    isArtist: boolean
+  }
+  parentCommentId: string | null
+  replyCount?: number
+  replies?: PostComment[]
+}
+
+export interface PostCommentsResponse {
+  data: PostComment[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+}
 
 export const postsService = {
   async getPosts(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Post>> {
@@ -43,17 +72,32 @@ export const postsService = {
     return transformPaginatedResponse(response.data)
   },
 
-  async getComments(postId: string): Promise<Comment[]> {
-    const response = await apiClient.get<Comment[]>(`/api/posts/${postId}/comments`)
+  async getComments(
+    postId: string,
+    page: number = 1,
+    limit: number = 50
+  ): Promise<PostCommentsResponse> {
+    const response = await apiClient.get<PostCommentsResponse>(
+      `/api/posts/${postId}/comments`,
+      { params: { page, limit } }
+    )
     return response.data
   },
 
-  async createComment(postId: string, content: string, parentCommentId?: string): Promise<Comment> {
-    const response = await apiClient.post<Comment>(`/api/posts/${postId}/comments`, {
-      content,
-      parentCommentId,
-    })
+  async createComment(
+    postId: string,
+    content: string,
+    parentCommentId?: string
+  ): Promise<{ comment: PostComment }> {
+    const response = await apiClient.post<{ comment: PostComment }>(
+      `/api/posts/${postId}/comments`,
+      { content, parentCommentId }
+    )
     return response.data
+  },
+
+  async deleteComment(commentId: string): Promise<void> {
+    await apiClient.delete(`/api/comments/${commentId}`)
   },
 
   async upvoteComment(commentId: string): Promise<void> {

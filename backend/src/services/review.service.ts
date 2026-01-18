@@ -345,7 +345,8 @@ export async function getArtistReviews(
  */
 export async function getPopularReviews(
   timeframe: 'day' | 'week' | 'month' = 'week',
-  limit: number = 10
+  limit: number = 10,
+  currentUserId?: string
 ) {
   const now = new Date();
   let startDate: Date;
@@ -362,7 +363,7 @@ export async function getPopularReviews(
       break;
   }
 
-  return prisma.review.findMany({
+  const reviews = await prisma.review.findMany({
     where: {
       createdAt: { gte: startDate },
       content: { not: null }, // Only reviews with actual content
@@ -391,6 +392,29 @@ export async function getPopularReviews(
       },
     },
   });
+
+  // Add hasUpvoted field if user is logged in
+  let reviewsWithUpvotes = reviews.map((review) => ({ ...review, hasUpvoted: false }));
+
+  if (currentUserId && reviews.length > 0) {
+    const reviewIds = reviews.map((r) => r.id);
+    const upvotes = await prisma.upvote.findMany({
+      where: {
+        userId: currentUserId,
+        targetType: 'review',
+        targetId: { in: reviewIds },
+      },
+      select: { targetId: true },
+    });
+
+    const upvotedIds = new Set(upvotes.map((u) => u.targetId));
+    reviewsWithUpvotes = reviews.map((review) => ({
+      ...review,
+      hasUpvoted: upvotedIds.has(review.id),
+    }));
+  }
+
+  return reviewsWithUpvotes;
 }
 
 
@@ -809,6 +833,15 @@ export async function getUserAlbumRating(
  * Upvote a review
  */
 export async function upvoteReview(reviewId: string, userId: string): Promise<void> {
+  // Check if review exists
+  const review = await prisma.review.findUnique({
+    where: { id: reviewId },
+  });
+
+  if (!review) {
+    throw new Error('Review not found');
+  }
+
   // Check if already upvoted
   const existing = await prisma.upvote.findUnique({
     where: {

@@ -27,6 +27,7 @@ export interface DiscoverReview {
   content: string | null
   upvoteCount: number
   commentCount: number
+  hasUpvoted?: boolean
   createdAt: string
   author: {
     id: string

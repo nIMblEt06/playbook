@@ -92,6 +92,9 @@ export async function reviewRoutes(fastify: FastifyInstance) {
         return reply.code(201).send({ success: true });
       } catch (error) {
         if (error instanceof Error) {
+          if (error.message === 'Review not found') {
+            return reply.code(404).send({ error: error.message });
+          }
           if (error.message === 'Already upvoted') {
             return reply.code(409).send({ error: error.message });
           }

@@ -36,6 +36,11 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'image-cdn-fa.spotifycdn.com',
       },
+      // Facebook profile pictures (for social login)
+      {
+        protocol: 'https',
+        hostname: 'platform-lookaside.fbsbx.com',
+      },
     ],
   },
   async rewrites() {

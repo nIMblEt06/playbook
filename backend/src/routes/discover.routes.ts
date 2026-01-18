@@ -84,8 +84,16 @@ export async function discoverRoutes(fastify: FastifyInstance) {
     '/popular-reviews',
     async (request, reply) => {
       try {
+        let currentUserId: string | undefined;
+        try {
+          await request.jwtVerify();
+          currentUserId = request.user.userId;
+        } catch {
+          // Not authenticated
+        }
+
         const query = popularReviewsSchema.parse(request.query);
-        const reviews = await discoverService.getPopularReviews(query.timeframe, query.limit);
+        const reviews = await discoverService.getPopularReviews(query.timeframe, query.limit, currentUserId);
 
         return reply.send({ reviews });
       } catch (error) {
