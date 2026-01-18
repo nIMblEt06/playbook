@@ -67,8 +67,17 @@ export async function userRoutes(fastify: FastifyInstance) {
     '/:username/posts',
     async (request, reply) => {
       try {
+        // Try to get current user ID for upvote/save status
+        let currentUserId: string | undefined;
+        try {
+          await request.jwtVerify();
+          currentUserId = request.user.userId;
+        } catch {
+          // Not authenticated - that's fine, just won't have upvote status
+        }
+
         const pagination = paginationSchema.parse(request.query);
-        const result = await userService.getUserPosts(request.params.username, pagination);
+        const result = await userService.getUserPosts(request.params.username, pagination, currentUserId);
         return reply.send(result);
       } catch (error) {
         if (error instanceof Error) {

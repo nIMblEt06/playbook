@@ -228,7 +228,7 @@ export class UserService {
     };
   }
 
-  async getUserPosts(username: string, pagination: PaginationInput) {
+  async getUserPosts(username: string, pagination: PaginationInput, currentUserId?: string) {
     const { page, limit } = pagination;
     const skip = (page - 1) * limit;
 
@@ -280,10 +280,39 @@ export class UserService {
       }),
     ]);
 
-    // Transform posts to flatten communities
+    // Get upvote and save status for current user
+    const postIds = posts.map((p) => p.id);
+    let upvotedPostIds = new Set<string>();
+    let savedPostIds = new Set<string>();
+
+    if (currentUserId) {
+      const [userUpvotes, userSaves] = await Promise.all([
+        prisma.upvote.findMany({
+          where: {
+            userId: currentUserId,
+            targetType: 'post',
+            targetId: { in: postIds },
+          },
+          select: { targetId: true },
+        }),
+        prisma.savedPost.findMany({
+          where: {
+            userId: currentUserId,
+            postId: { in: postIds },
+          },
+          select: { postId: true },
+        }),
+      ]);
+      upvotedPostIds = new Set(userUpvotes.map((u) => u.targetId));
+      savedPostIds = new Set(userSaves.map((s) => s.postId));
+    }
+
+    // Transform posts to flatten communities and add status
     const transformedPosts = posts.map((post) => ({
       ...post,
       communities: post.communities.map((pc) => pc.community),
+      hasUpvoted: upvotedPostIds.has(post.id),
+      hasSaved: savedPostIds.has(post.id),
     }));
 
     return {

@@ -123,13 +123,22 @@ export async function communityRoutes(fastify: FastifyInstance) {
     '/:slug/posts',
     async (request, reply) => {
       try {
+        // Try to get current user ID for upvote/save status
+        let currentUserId: string | undefined;
+        try {
+          await request.jwtVerify();
+          currentUserId = request.user.userId;
+        } catch {
+          // Not authenticated - that's fine, just won't have upvote status
+        }
+
         const community = await communityService.getCommunityBySlug(request.params.slug);
         if (!community) {
           return reply.code(404).send({ error: 'Community not found' });
         }
 
         const query = postQuerySchema.parse(request.query);
-        const result = await feedService.getCommunityFeed(community.id, query);
+        const result = await feedService.getCommunityFeed(community.id, query, currentUserId);
         return reply.send(result);
       } catch (error) {
         if (error instanceof Error) {

@@ -35,7 +35,27 @@ export class NotificationService {
     const enrichedNotifications = await Promise.all(
       notifications.map(async (notification) => {
         // For post-related notifications, fetch the post author
-        if (['upvote_post', 'comment', 'mention'].includes(notification.type) && notification.targetType === 'post') {
+        if (['upvote_post', 'mention'].includes(notification.type) && notification.targetType === 'post') {
+          const post = await prisma.post.findUnique({
+            where: { id: notification.targetId },
+            select: {
+              id: true,
+              author: {
+                select: {
+                  id: true,
+                  username: true,
+                  displayName: true,
+                },
+              },
+            },
+          });
+          return {
+            ...notification,
+            post: post ? { id: post.id, author: post.author } : null,
+          };
+        }
+        // For comment notifications, targetId is the postId (not the comment ID)
+        if (notification.type === 'comment' && notification.targetType === 'comment') {
           const post = await prisma.post.findUnique({
             where: { id: notification.targetId },
             select: {

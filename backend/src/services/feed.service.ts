@@ -180,7 +180,7 @@ export class FeedService {
     };
   }
 
-  async getCommunityFeed(communityId: string, query: PostQueryInput) {
+  async getCommunityFeed(communityId: string, query: PostQueryInput, currentUserId?: string) {
     const { page, limit, sort } = query;
     const skip = (page - 1) * limit;
 
@@ -209,6 +209,17 @@ export class FeedService {
               isArtist: true,
             },
           },
+          communities: {
+            include: {
+              community: {
+                select: {
+                  id: true,
+                  slug: true,
+                  name: true,
+                },
+              },
+            },
+          },
           _count: {
             select: {
               comments: true,
@@ -225,8 +236,42 @@ export class FeedService {
       }),
     ]);
 
+    // Get upvote and save status for current user
+    const postIds = posts.map((p) => p.id);
+    let upvotedPostIds = new Set<string>();
+    let savedPostIds = new Set<string>();
+
+    if (currentUserId) {
+      const [userUpvotes, userSaves] = await Promise.all([
+        prisma.upvote.findMany({
+          where: {
+            userId: currentUserId,
+            targetType: 'post',
+            targetId: { in: postIds },
+          },
+          select: { targetId: true },
+        }),
+        prisma.savedPost.findMany({
+          where: {
+            userId: currentUserId,
+            postId: { in: postIds },
+          },
+          select: { postId: true },
+        }),
+      ]);
+      upvotedPostIds = new Set(userUpvotes.map((u) => u.targetId));
+      savedPostIds = new Set(userSaves.map((s) => s.postId));
+    }
+
+    const postsWithStatus = posts.map((post) => ({
+      ...post,
+      communities: post.communities.map((pc) => pc.community),
+      hasUpvoted: upvotedPostIds.has(post.id),
+      hasSaved: savedPostIds.has(post.id),
+    }));
+
     return {
-      data: posts,
+      data: postsWithStatus,
       pagination: {
         page,
         limit,

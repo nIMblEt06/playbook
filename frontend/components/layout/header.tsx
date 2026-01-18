@@ -55,7 +55,7 @@ export function Header() {
             <div className="flex items-center gap-2 md:gap-3">
               <Link href="/notifications" className="p-2 hover:bg-card transition-colors relative">
                 <Bell className="w-5 h-5 text-muted-foreground hover:text-foreground" />
-                {unreadCount && unreadCount > 0 && (
+                {unreadCount !== undefined && unreadCount > 0 && (
                   <span className="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold bg-primary text-primary-foreground border-2 border-background px-1">
                     {unreadCount > 99 ? '99+' : unreadCount}
                   </span>

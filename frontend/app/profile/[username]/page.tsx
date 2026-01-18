@@ -25,6 +25,7 @@ export default function ProfilePage() {
 
   // Handle post query param for scrolling to specific post from notifications
   const postIdFromUrl = searchParams.get('post')
+  const showCommentsFromUrl = searchParams.get('showComments') === 'true'
 
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['user', username],
@@ -356,7 +357,10 @@ export default function ProfilePage() {
                       isHighlighted ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''
                     }`}
                   >
-                    <PostCard post={post} />
+                    <PostCard
+                      post={post}
+                      defaultShowComments={isHighlighted && showCommentsFromUrl}
+                    />
                   </div>
                 )
               })}

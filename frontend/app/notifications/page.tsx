@@ -68,12 +68,19 @@ function NotificationsContent() {
       case 'follow':
         router.push(`/profile/${notification.actor.username}`)
         break
-      case 'upvote_post':
       case 'comment':
-      case 'upvote_comment':
       case 'reply':
+        // For comment notifications, navigate to post with comments expanded
+        if (notification.post?.author) {
+          router.push(`/profile/${notification.post.author.username}?post=${notification.post.id}&showComments=true`)
+        } else {
+          router.push(`/profile/${notification.actor.username}`)
+        }
+        break
+      case 'upvote_post':
+      case 'upvote_comment':
       case 'mention':
-        // For post-related notifications, navigate to the post author's profile
+        // For other post-related notifications, navigate to the post author's profile
         // with a query param to highlight/scroll to the specific post
         if (notification.post?.author) {
           router.push(`/profile/${notification.post.author.username}?post=${notification.post.id}`)

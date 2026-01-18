@@ -11,13 +11,14 @@ import { PostCommentThread } from './post-comment-thread'
 
 interface PostCardProps {
   post: Post
+  defaultShowComments?: boolean
 }
 
-export function PostCard({ post }: PostCardProps) {
+export function PostCard({ post, defaultShowComments = false }: PostCardProps) {
   const [hasUpvoted, setHasUpvoted] = useState(post.hasUpvoted || false)
   const [hasSaved, setHasSaved] = useState(post.hasSaved || false)
   const [upvoteCount, setUpvoteCount] = useState(post.upvoteCount)
-  const [showComments, setShowComments] = useState(false)
+  const [showComments, setShowComments] = useState(defaultShowComments)
 
   // Sync local state with prop changes (e.g., after refetch)
   useEffect(() => {
