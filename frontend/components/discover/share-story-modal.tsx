@@ -56,38 +56,13 @@ export function ShareStoryModal({ review, isOpen, onClose }: ShareStoryModalProp
       }
 
       const canvas = await html2canvas(storyElement, {
-        scale: 1, // Use scale 1 since we're already at full size
-        useCORS: true, // Allow cross-origin images
-        allowTaint: false, // Don't allow tainted canvas
+        scale: 1,
+        useCORS: true,
+        allowTaint: false,
         backgroundColor: '#0a0a0a',
         width: 1080,
         height: 1920,
         logging: false,
-        onclone: (clonedDoc) => {
-          // Override oklch CSS variables with standard colors to fix html2canvas compatibility
-          // html2canvas doesn't support oklch color function
-          const style = clonedDoc.createElement('style')
-          style.textContent = `
-            :root, *, *::before, *::after {
-              --background: #0a0a0a !important;
-              --foreground: #fafafa !important;
-              --primary: #86EFAC !important;
-              --muted: #262626 !important;
-              --muted-foreground: #a1a1aa !important;
-              --border: #27272a !important;
-            }
-            .story-capture, .story-capture * {
-              color: inherit;
-            }
-          `
-          clonedDoc.head.appendChild(style)
-
-          // Ensure the cloned element has no transform
-          const clonedElement = clonedDoc.querySelector('.story-capture') as HTMLElement
-          if (clonedElement) {
-            clonedElement.style.transform = 'none'
-          }
-        }
       })
 
       // Restore original transform
