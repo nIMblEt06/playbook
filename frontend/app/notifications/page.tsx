@@ -73,9 +73,14 @@ function NotificationsContent() {
       case 'upvote_comment':
       case 'reply':
       case 'mention':
-        // For post-related notifications, navigate to the actor's profile
-        // since the post page no longer exists (comments are inline)
-        router.push(`/profile/${notification.actor.username}`)
+        // For post-related notifications, navigate to the post author's profile
+        // with a query param to highlight/scroll to the specific post
+        if (notification.post?.author) {
+          router.push(`/profile/${notification.post.author.username}?post=${notification.post.id}`)
+        } else {
+          // Fallback to actor's profile if post info is not available
+          router.push(`/profile/${notification.actor.username}`)
+        }
         break
       default:
         break

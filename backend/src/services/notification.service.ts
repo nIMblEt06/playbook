@@ -31,8 +31,60 @@ export class NotificationService {
       }),
     ]);
 
+    // Enrich post-related notifications with post author info
+    const enrichedNotifications = await Promise.all(
+      notifications.map(async (notification) => {
+        // For post-related notifications, fetch the post author
+        if (['upvote_post', 'comment', 'mention'].includes(notification.type) && notification.targetType === 'post') {
+          const post = await prisma.post.findUnique({
+            where: { id: notification.targetId },
+            select: {
+              id: true,
+              author: {
+                select: {
+                  id: true,
+                  username: true,
+                  displayName: true,
+                },
+              },
+            },
+          });
+          return {
+            ...notification,
+            post: post ? { id: post.id, author: post.author } : null,
+          };
+        }
+        // For comment-related notifications (upvote_comment, reply), fetch the comment's post and author
+        if (['upvote_comment', 'reply'].includes(notification.type) && notification.targetType === 'comment') {
+          const comment = await prisma.comment.findUnique({
+            where: { id: notification.targetId },
+            select: {
+              postId: true,
+              post: {
+                select: {
+                  id: true,
+                  author: {
+                    select: {
+                      id: true,
+                      username: true,
+                      displayName: true,
+                    },
+                  },
+                },
+              },
+            },
+          });
+          return {
+            ...notification,
+            post: comment?.post ? { id: comment.post.id, author: comment.post.author } : null,
+          };
+        }
+        return notification;
+      })
+    );
+
     return {
-      data: notifications,
+      data: enrichedNotifications,
       unreadCount,
       pagination: {
         page,

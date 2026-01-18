@@ -24,6 +24,7 @@ export interface User {
   }
   createdAt: string
   updatedAt: string
+  isFollowing?: boolean
   _count?: {
     followers: number
     following: number
@@ -148,6 +149,14 @@ export interface Notification {
   isRead: boolean
   createdAt: string
   actor: User
+  post?: {
+    id: string
+    author: {
+      id: string
+      username: string
+      displayName: string
+    }
+  } | null
 }
 
 // API request/response types

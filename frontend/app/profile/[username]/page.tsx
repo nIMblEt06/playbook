@@ -1,7 +1,7 @@
 'use client'
 
-import { useParams, useRouter } from 'next/navigation'
-import { useQuery } from '@tanstack/react-query'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { usersService } from '@/lib/api/services/users'
 import { AppLayout } from '@/components/layout/app-layout'
 import { PostCard } from '@/components/posts/post-card'
@@ -10,15 +10,21 @@ import { useAuthStore } from '@/lib/store/auth-store'
 import { Music2, Loader2, Settings, FileText, Activity } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 export default function ProfilePage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const queryClient = useQueryClient()
   const username = params.username as string
   const { user: currentUser } = useAuthStore()
-  const [isFollowing, setIsFollowing] = useState(false)
   const [activeTab, setActiveTab] = useState<'posts' | 'activity'>('posts')
+  const [highlightedPostId, setHighlightedPostId] = useState<string | null>(null)
+  const highlightedPostRef = useRef<HTMLDivElement>(null)
+
+  // Handle post query param for scrolling to specific post from notifications
+  const postIdFromUrl = searchParams.get('post')
 
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['user', username],
@@ -37,15 +43,54 @@ export default function ProfilePage() {
     enabled: activeTab === 'activity',
   })
 
-  const isOwnProfile = currentUser?.username === username
+  // Set highlighted post from URL query param
+  useEffect(() => {
+    if (postIdFromUrl) {
+      setHighlightedPostId(postIdFromUrl)
+      // Clear the highlight after 3 seconds
+      const timer = setTimeout(() => {
+        setHighlightedPostId(null)
+        // Clean up the URL by removing the query param
+        router.replace(`/profile/${username}`, { scroll: false })
+      }, 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [postIdFromUrl, router, username])
 
-  const handleFollow = async () => {
+  // Scroll to highlighted post when posts data loads
+  useEffect(() => {
+    if (highlightedPostId && postsData?.items && highlightedPostRef.current) {
+      // Small delay to ensure DOM is ready
+      setTimeout(() => {
+        highlightedPostRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 100)
+    }
+  }, [highlightedPostId, postsData])
+
+  const isOwnProfile = currentUser?.username === username
+  const isFollowing = profile?.isFollowing ?? false
+
+  const followMutation = useMutation({
+    mutationFn: () => usersService.followUser(username),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user', username] })
+    },
+  })
+
+  const unfollowMutation = useMutation({
+    mutationFn: () => usersService.unfollowUser(username),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user', username] })
+    },
+  })
+
+  const isFollowPending = followMutation.isPending || unfollowMutation.isPending
+
+  const handleFollow = () => {
     if (isFollowing) {
-      await usersService.unfollowUser(username)
-      setIsFollowing(false)
+      unfollowMutation.mutate()
     } else {
-      await usersService.followUser(username)
-      setIsFollowing(true)
+      followMutation.mutate()
     }
   }
 
@@ -103,8 +148,25 @@ export default function ProfilePage() {
                       Edit
                     </Link>
                   ) : (
-                    <button onClick={handleFollow} className="btn-primary text-xs px-4 py-2">
-                      {isFollowing ? 'Unfollow' : 'Follow'}
+                    <button
+                      onClick={handleFollow}
+                      disabled={isFollowPending}
+                      className={`group text-xs px-4 py-2 disabled:opacity-50 ${
+                        isFollowing
+                          ? 'btn-ghost border-2 border-border hover:border-red-500 hover:text-red-500 hover:bg-red-500/10'
+                          : 'btn-primary'
+                      }`}
+                    >
+                      {isFollowPending ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : isFollowing ? (
+                        <>
+                          <span className="group-hover:hidden">Following</span>
+                          <span className="hidden group-hover:inline">Unfollow</span>
+                        </>
+                      ) : (
+                        'Follow'
+                      )}
                     </button>
                   )}
                 </div>
@@ -127,8 +189,25 @@ export default function ProfilePage() {
                         Edit Profile
                       </Link>
                     ) : (
-                      <button onClick={handleFollow} className="btn-primary whitespace-nowrap">
-                        {isFollowing ? 'Unfollow' : 'Follow'}
+                      <button
+                        onClick={handleFollow}
+                        disabled={isFollowPending}
+                        className={`group whitespace-nowrap disabled:opacity-50 ${
+                          isFollowing
+                            ? 'btn-ghost border-2 border-border hover:border-red-500 hover:text-red-500 hover:bg-red-500/10'
+                            : 'btn-primary'
+                        }`}
+                      >
+                        {isFollowPending ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : isFollowing ? (
+                          <>
+                            <span className="group-hover:hidden">Following</span>
+                            <span className="hidden group-hover:inline">Unfollow</span>
+                          </>
+                        ) : (
+                          'Follow'
+                        )}
                       </button>
                     )}
                   </div>
@@ -267,9 +346,20 @@ export default function ProfilePage() {
                 </div>
               )}
 
-              {postsData?.items.map((post) => (
-                <PostCard key={post.id} post={post} />
-              ))}
+              {postsData?.items.map((post) => {
+                const isHighlighted = post.id === highlightedPostId
+                return (
+                  <div
+                    key={post.id}
+                    ref={isHighlighted ? highlightedPostRef : undefined}
+                    className={`transition-all duration-500 ${
+                      isHighlighted ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''
+                    }`}
+                  >
+                    <PostCard post={post} />
+                  </div>
+                )
+              })}
             </>
           ) : (
             <div className="px-4 md:px-6 py-4 md:py-6 space-y-3 md:space-y-4">

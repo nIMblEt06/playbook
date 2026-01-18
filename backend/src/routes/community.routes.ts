@@ -15,8 +15,16 @@ export async function communityRoutes(fastify: FastifyInstance) {
     '/',
     async (request, reply) => {
       try {
+        let currentUserId: string | undefined;
+        try {
+          await request.jwtVerify();
+          currentUserId = request.user.userId;
+        } catch {
+          // Not authenticated
+        }
+
         const pagination = paginationSchema.parse(request.query);
-        const result = await communityService.listCommunities(pagination);
+        const result = await communityService.listCommunities(pagination, currentUserId);
         return reply.send(result);
       } catch (error) {
         if (error instanceof Error) {

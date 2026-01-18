@@ -6,7 +6,7 @@ import Image from 'next/image'
 import type { Post } from '@/lib/types'
 import { useUpvotePost, useSavePost } from '@/lib/hooks/use-posts'
 import { formatDistanceToNow } from 'date-fns'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { PostCommentThread } from './post-comment-thread'
 
 interface PostCardProps {
@@ -18,6 +18,13 @@ export function PostCard({ post }: PostCardProps) {
   const [hasSaved, setHasSaved] = useState(post.hasSaved || false)
   const [upvoteCount, setUpvoteCount] = useState(post.upvoteCount)
   const [showComments, setShowComments] = useState(false)
+
+  // Sync local state with prop changes (e.g., after refetch)
+  useEffect(() => {
+    setHasUpvoted(post.hasUpvoted || false)
+    setHasSaved(post.hasSaved || false)
+    setUpvoteCount(post.upvoteCount)
+  }, [post.hasUpvoted, post.hasSaved, post.upvoteCount])
 
   const upvoteMutation = useUpvotePost()
   const saveMutation = useSavePost()

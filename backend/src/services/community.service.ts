@@ -230,7 +230,7 @@ export class CommunityService {
     };
   }
 
-  async listCommunities(pagination: PaginationInput) {
+  async listCommunities(pagination: PaginationInput, currentUserId?: string) {
     const { page, limit } = pagination;
     const skip = (page - 1) * limit;
 
@@ -251,11 +251,25 @@ export class CommunityService {
       prisma.community.count(),
     ]);
 
+    // Check membership status for each community if user is logged in
+    const membershipMap: Map<string, boolean> = new Map();
+    if (currentUserId) {
+      const memberships = await prisma.communityMembership.findMany({
+        where: {
+          userId: currentUserId,
+          communityId: { in: communities.map((c) => c.id) },
+        },
+        select: { communityId: true },
+      });
+      memberships.forEach((m: { communityId: string }) => membershipMap.set(m.communityId, true));
+    }
+
     return {
       data: communities.map((c) => ({
         ...c,
         memberCount: c._count.members,
         postCount: c._count.posts,
+        isMember: membershipMap.get(c.id) ?? false,
       })),
       pagination: {
         page,
