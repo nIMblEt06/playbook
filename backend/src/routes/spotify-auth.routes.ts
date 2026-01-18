@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import * as spotifyAuthService from '../services/spotify-auth.service.js';
 
 // Frontend URL for redirects (use 127.0.0.1 for Spotify OAuth compatibility)
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://127.0.0.1:3000';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://trackd.site';
 
 export async function spotifyAuthRoutes(fastify: FastifyInstance) {
   /**

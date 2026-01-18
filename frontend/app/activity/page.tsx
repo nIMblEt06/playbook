@@ -37,13 +37,13 @@ export default function ActivityPage() {
     return (
       <AppLayout>
         <div className="max-w-3xl mx-auto">
-          <div className="px-6 py-6 border-b border-border">
+          <div className="px-4 md:px-6 py-6 border-b border-border">
             <h1 className="text-2xl font-bold">Activity</h1>
             <p className="text-muted-foreground mt-1">
               See what people you follow are listening to
             </p>
           </div>
-          <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+          <div className="flex flex-col items-center justify-center py-16 px-4 md:px-6 text-center">
             <Activity className="w-16 h-16 text-muted-foreground mb-4" />
             <h2 className="text-xl font-semibold mb-2">Sign in to see activity</h2>
             <p className="text-muted-foreground mb-6">
@@ -73,7 +73,7 @@ export default function ActivityPage() {
         </div>
 
         {/* Content */}
-        <div className="px-6 py-6">
+        <div className="px-4 md:px-6 py-6">
           {/* Loading state */}
           {isLoading && (
             <div className="flex items-center justify-center py-12">
@@ -107,7 +107,7 @@ export default function ActivityPage() {
 
           {/* Activity list */}
           {activityItems.length > 0 && (
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
               {activityItems.map((activity) => (
                 <ActivityCard key={activity.id} activity={activity} />
               ))}

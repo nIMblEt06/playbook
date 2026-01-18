@@ -77,7 +77,7 @@ export default function UserCommunityPage() {
   if (!community) {
     return (
       <AppLayout>
-        <div className="px-6 py-12 text-center">
+        <div className="px-4 md:px-6 py-12 text-center">
           <h2 className="text-2xl font-display font-bold mb-4">Community Not Found</h2>
           <p className="text-muted-foreground mb-6">
             The community you&apos;re looking for doesn&apos;t exist or has been removed.
@@ -95,10 +95,10 @@ export default function UserCommunityPage() {
       <div>
         {/* Community Header */}
         <div className="border-b-2 border-border">
-          <div className="max-w-3xl mx-auto px-6 py-8">
+          <div className="max-w-3xl mx-auto px-4 md:px-6 py-6 md:py-8">
             {/* Cover Image */}
             {community.coverImageUrl && (
-              <div className="w-full h-32 md:h-48 mb-6 border-2 border-border shadow-md overflow-hidden">
+              <div className="w-full h-32 md:h-48 mb-4 md:mb-6 border-2 border-border shadow-md overflow-hidden">
                 <Image
                   src={community.coverImageUrl}
                   alt={community.name}
@@ -109,16 +109,16 @@ export default function UserCommunityPage() {
               </div>
             )}
 
-            <div className="flex items-start justify-between gap-4 mb-4">
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
-                  <Users className="w-5 h-5 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground font-medium">c/{slug}</span>
+                  <Users className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
+                  <span className="text-xs md:text-sm text-muted-foreground font-medium">c/{slug}</span>
                 </div>
-                <h1 className="text-3xl md:text-4xl font-display font-bold uppercase mb-2">
+                <h1 className="text-2xl md:text-3xl lg:text-4xl font-display font-bold uppercase mb-2 break-words">
                   {community.name}
                 </h1>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
                   <span className="font-medium">
                     {community.memberCount.toLocaleString()} {community.memberCount === 1 ? 'member' : 'members'}
                   </span>
@@ -129,7 +129,7 @@ export default function UserCommunityPage() {
               <button
                 onClick={handleJoinLeave}
                 disabled={joinMutation.isPending || leaveMutation.isPending}
-                className={`flex items-center gap-2 px-4 py-2 border-2 border-border font-medium uppercase text-sm transition-colors ${
+                className={`flex items-center justify-center gap-2 px-4 py-2 border-2 border-border font-medium uppercase text-xs md:text-sm transition-colors shrink-0 ${
                   community.isMember
                     ? 'bg-card hover:bg-card-hover text-foreground'
                     : 'bg-primary hover:bg-primary/90 text-primary-foreground'
@@ -140,12 +140,12 @@ export default function UserCommunityPage() {
                 ) : community.isMember ? (
                   <>
                     <LogOut className="w-4 h-4" />
-                    Leave
+                    <span>Leave</span>
                   </>
                 ) : (
                   <>
                     <LogIn className="w-4 h-4" />
-                    Join
+                    <span>Join</span>
                   </>
                 )}
               </button>
@@ -153,28 +153,30 @@ export default function UserCommunityPage() {
 
             {/* Description */}
             {community.description && (
-              <p className="text-foreground-muted leading-relaxed mb-4">
+              <p className="text-sm md:text-base text-foreground-muted leading-relaxed mb-4">
                 {community.description}
               </p>
             )}
 
-            {/* Rules Section */}
+            {/* Rules Section - Collapsible */}
             {community.rules && (
               <div className="border-2 border-border bg-card">
                 <button
                   onClick={() => setShowRules(!showRules)}
-                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-card-hover transition-colors"
+                  className="w-full flex items-center justify-between px-3 md:px-4 py-3 hover:bg-card-hover transition-colors"
+                  aria-expanded={showRules}
+                  aria-controls="community-rules"
                 >
-                  <span className="font-medium text-sm uppercase">Community Rules</span>
+                  <span className="font-medium text-xs md:text-sm uppercase">Community Rules</span>
                   {showRules ? (
-                    <ChevronUp className="w-4 h-4" />
+                    <ChevronUp className="w-4 h-4 shrink-0" />
                   ) : (
-                    <ChevronDown className="w-4 h-4" />
+                    <ChevronDown className="w-4 h-4 shrink-0" />
                   )}
                 </button>
                 {showRules && (
-                  <div className="px-4 pb-4 border-t-2 border-border pt-4">
-                    <p className="text-sm text-foreground-muted whitespace-pre-wrap leading-relaxed">
+                  <div id="community-rules" className="px-3 md:px-4 pb-4 border-t-2 border-border pt-4">
+                    <p className="text-xs md:text-sm text-foreground-muted whitespace-pre-wrap leading-relaxed">
                       {community.rules}
                     </p>
                   </div>
@@ -193,10 +195,10 @@ export default function UserCommunityPage() {
           )}
 
           {!postsLoading && postsData?.items.length === 0 && (
-            <div className="px-6 py-12 text-center text-muted-foreground">
-              <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-medium mb-2">No posts yet</p>
-              <p className="text-sm">Be the first to share something in this community!</p>
+            <div className="px-4 md:px-6 py-12 text-center text-muted-foreground">
+              <Users className="w-10 h-10 md:w-12 md:h-12 mx-auto mb-4 opacity-50" />
+              <p className="text-base md:text-lg font-medium mb-2">No posts yet</p>
+              <p className="text-xs md:text-sm">Be the first to share something in this community!</p>
             </div>
           )}
 
@@ -206,16 +208,16 @@ export default function UserCommunityPage() {
 
           {/* Load More Button */}
           {postsData && postsData.hasMore && (
-            <div className="px-6 py-6 border-t-2 border-border">
+            <div className="px-4 md:px-6 py-6 border-t-2 border-border">
               <button
                 onClick={handleLoadMore}
                 disabled={postsLoading}
-                className="w-full btn-ghost flex items-center justify-center gap-2"
+                className="w-full btn-ghost flex items-center justify-center gap-2 text-sm md:text-base"
               >
                 {postsLoading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Loading...
+                    <span>Loading...</span>
                   </>
                 ) : (
                   <>Load More</>

@@ -68,9 +68,9 @@ export function ActivityCard({ activity }: ActivityCardProps) {
   }
 
   return (
-    <div className="bg-card rounded-lg border border-border p-4">
+    <div className="bg-card rounded-lg border border-border p-3 md:p-4">
       {/* Header - Author and action */}
-      <div className="flex items-center gap-2 mb-3 text-sm">
+      <div className="flex items-center gap-2 mb-3 text-xs md:text-sm flex-wrap">
         <Link
           href={`/profile/${activity.author.username}`}
           className="flex items-center gap-2 hover:text-primary transition-colors"
@@ -98,16 +98,16 @@ export function ActivityCard({ activity }: ActivityCardProps) {
             {activity.targetType === 'album' ? 'this album' : activity.targetType === 'track' ? 'this track' : 'this artist'}
           </span>
         )}
-        <span className="text-muted-foreground ml-auto text-xs">
+        <span className="text-muted-foreground ml-auto text-[10px] md:text-xs">
           {formatDistanceToNow(new Date(activity.createdAt))}
         </span>
       </div>
 
       {/* Target info - Album/Track/Artist */}
-      <div className="flex gap-3 mb-3">
+      <div className="flex gap-2 md:gap-3 mb-3">
         <Link
           href={target.href}
-          className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-muted hover:opacity-90 transition-opacity"
+          className="w-12 h-12 md:w-16 md:h-16 rounded-lg overflow-hidden flex-shrink-0 bg-muted hover:opacity-90 transition-opacity"
         >
           {target.imageUrl ? (
             <Image
@@ -133,11 +133,11 @@ export function ActivityCard({ activity }: ActivityCardProps) {
         <div className="flex-1 min-w-0">
           <Link
             href={target.href}
-            className="font-medium hover:text-primary transition-colors line-clamp-1"
+            className="text-sm md:text-base font-medium hover:text-primary transition-colors line-clamp-1"
           >
             {target.title}
           </Link>
-          <p className="text-sm text-muted-foreground line-clamp-1">
+          <p className="text-xs md:text-sm text-muted-foreground line-clamp-1">
             {target.subtitle}
           </p>
           {activity.rating && (
@@ -148,12 +148,12 @@ export function ActivityCard({ activity }: ActivityCardProps) {
 
       {/* Review content (if any) */}
       {(activity.title || activity.content) && (
-        <div className="mb-3 bg-muted/50 rounded-lg p-3">
+        <div className="mb-3 bg-muted/50 rounded-lg p-2 md:p-3">
           {activity.title && (
-            <h3 className="font-medium mb-1">{activity.title}</h3>
+            <h3 className="text-sm md:text-base font-medium mb-1">{activity.title}</h3>
           )}
           {activity.content && (
-            <p className="text-sm text-muted-foreground line-clamp-3">
+            <p className="text-xs md:text-sm text-muted-foreground line-clamp-3">
               {activity.content}
             </p>
           )}
@@ -161,13 +161,13 @@ export function ActivityCard({ activity }: ActivityCardProps) {
       )}
 
       {/* Footer - Stats */}
-      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+      <div className="flex items-center gap-3 md:gap-4 text-xs md:text-sm text-muted-foreground">
         <span className="flex items-center gap-1">
-          <ThumbsUp className="w-3.5 h-3.5" />
+          <ThumbsUp className="w-3 h-3 md:w-3.5 md:h-3.5" />
           {activity.upvoteCount}
         </span>
         <span className="flex items-center gap-1">
-          <MessageCircle className="w-3.5 h-3.5" />
+          <MessageCircle className="w-3 h-3 md:w-3.5 md:h-3.5" />
           {activity.commentCount}
         </span>
       </div>

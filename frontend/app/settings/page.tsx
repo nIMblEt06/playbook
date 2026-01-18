@@ -118,11 +118,11 @@ export default function SettingsPage() {
 
   return (
     <AppLayout showRightSidebar={false}>
-      <div className="max-w-3xl mx-auto px-6 py-8">
+      <div className="max-w-3xl mx-auto px-4 md:px-6 py-8">
         {/* Header */}
         <div className="border-b-2 border-border pb-6 mb-8">
-          <h1 className="text-3xl font-display font-bold uppercase mb-2">Edit Profile</h1>
-          <p className="text-muted-foreground">Update your profile information and streaming links</p>
+          <h1 className="text-2xl md:text-3xl font-display font-bold uppercase mb-2">Edit Profile</h1>
+          <p className="text-sm md:text-base text-muted-foreground">Update your profile information and streaming links</p>
         </div>
 
         {/* Feedback Messages */}
@@ -139,17 +139,17 @@ export default function SettingsPage() {
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <form onSubmit={handleSubmit} className="space-y-6 md:space-y-8">
           {/* Avatar Section */}
-          <div className="card p-6">
-            <h2 className="text-xl font-display font-bold uppercase mb-4">Profile Picture</h2>
+          <div className="card p-4 md:p-6">
+            <h2 className="text-lg md:text-xl font-display font-bold uppercase mb-4">Profile Picture</h2>
 
             {/* Avatar Type Toggle */}
-            <div className="flex gap-4 mb-6">
+            <div className="flex flex-col sm:flex-row gap-3 md:gap-4 mb-6">
               <button
                 type="button"
                 onClick={() => setAvatarType('pixel')}
-                className={`flex-1 p-4 border-2 transition-all ${
+                className={`flex-1 p-3 md:p-4 border-2 transition-all ${
                   avatarType === 'pixel'
                     ? 'border-primary bg-primary/10'
                     : 'border-border hover:border-muted-foreground'
@@ -161,7 +161,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={() => setAvatarType('custom')}
-                className={`flex-1 p-4 border-2 transition-all ${
+                className={`flex-1 p-3 md:p-4 border-2 transition-all ${
                   avatarType === 'custom'
                     ? 'border-primary bg-primary/10'
                     : 'border-border hover:border-muted-foreground'
@@ -174,18 +174,18 @@ export default function SettingsPage() {
 
             {avatarType === 'pixel' ? (
               /* Pixel Avatar Selector */
-              <div className="flex items-start gap-6">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 md:gap-6">
                 <div className="flex-shrink-0">
                   {pixelAvatarId ? (
                     <PixelAvatar avatarId={pixelAvatarId} size={96} seed={user?.displayName} />
                   ) : (
-                    <div className="w-24 h-24 bg-muted border-4 border-border shadow-md flex items-center justify-center">
-                      <User className="w-10 h-10 text-muted-foreground" />
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 bg-muted border-4 border-border shadow-md flex items-center justify-center">
+                      <User className="w-8 h-8 sm:w-10 sm:h-10 text-muted-foreground" />
                     </div>
                   )}
                 </div>
-                <div className="flex-1">
-                  <label className="block text-sm font-bold uppercase mb-3">
+                <div className="flex-1 w-full">
+                  <label className="block text-sm font-bold uppercase mb-3 text-center sm:text-left">
                     Choose Your Avatar
                   </label>
                   <PixelAvatarSelector
@@ -193,28 +193,28 @@ export default function SettingsPage() {
                     onSelect={(id) => setPixelAvatarId(id)}
                     size={56}
                   />
-                  <p className="text-xs text-muted-foreground mt-3">
+                  <p className="text-xs text-muted-foreground mt-3 text-center sm:text-left">
                     Select one of the 5 retro pixel art avatars
                   </p>
                 </div>
               </div>
             ) : (
               /* Custom Avatar URL */
-              <div className="flex items-start gap-6">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 md:gap-6">
                 {avatarUrl ? (
                   <Image
                     src={avatarUrl}
                     alt="Avatar preview"
                     width={100}
                     height={100}
-                    className="w-24 h-24 border-4 border-border shadow-md"
+                    className="w-20 h-20 sm:w-24 sm:h-24 border-4 border-border shadow-md"
                   />
                 ) : (
-                  <div className="w-24 h-24 bg-muted border-4 border-border shadow-md flex items-center justify-center">
-                    <User className="w-10 h-10 text-muted-foreground" />
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 bg-muted border-4 border-border shadow-md flex items-center justify-center">
+                    <User className="w-8 h-8 sm:w-10 sm:h-10 text-muted-foreground" />
                   </div>
                 )}
-                <div className="flex-1">
+                <div className="flex-1 w-full">
                   <label htmlFor="avatarUrl" className="block text-sm font-bold uppercase mb-2">
                     Avatar URL
                   </label>
@@ -235,8 +235,8 @@ export default function SettingsPage() {
           </div>
 
           {/* Basic Info Section */}
-          <div className="card p-6">
-            <h2 className="text-xl font-display font-bold uppercase mb-4">Basic Information</h2>
+          <div className="card p-4 md:p-6">
+            <h2 className="text-lg md:text-xl font-display font-bold uppercase mb-4">Basic Information</h2>
 
             <div className="space-y-4">
               <div>
@@ -291,8 +291,8 @@ export default function SettingsPage() {
           </div>
 
           {/* Streaming Links Section */}
-          <div className="card p-6">
-            <h2 className="text-xl font-display font-bold uppercase mb-4 flex items-center gap-2">
+          <div className="card p-4 md:p-6">
+            <h2 className="text-lg md:text-xl font-display font-bold uppercase mb-4 flex items-center gap-2">
               <Music2 className="w-5 h-5" />
               Streaming Links
             </h2>
@@ -376,12 +376,12 @@ export default function SettingsPage() {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-4 justify-end pt-4 border-t-2 border-border">
+          <div className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-end pt-4 border-t-2 border-border">
             <button
               type="button"
               onClick={handleCancel}
               disabled={updateProfileMutation.isPending}
-              className="btn-ghost"
+              className="btn-ghost w-full sm:w-auto"
             >
               <X className="w-4 h-4 mr-2" />
               Cancel
@@ -389,7 +389,7 @@ export default function SettingsPage() {
             <button
               type="submit"
               disabled={updateProfileMutation.isPending || !displayName.trim()}
-              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 justify-center w-full sm:w-auto"
             >
               {updateProfileMutation.isPending ? (
                 <>

@@ -44,54 +44,54 @@ export function PostCard({ post }: PostCardProps) {
   }
 
   return (
-    <article className="px-6 py-5 hover:bg-card transition-colors border-b-2 border-border">
-      <div className="flex gap-3">
+    <article className="px-3 sm:px-6 py-4 sm:py-5 hover:bg-card transition-colors border-b-2 border-border">
+      <div className="flex gap-2 sm:gap-3">
         {/* Avatar */}
-        <Link href={`/profile/${post.author.username}`}>
+        <Link href={`/profile/${post.author.username}`} className="flex-shrink-0">
           {post.author.avatarUrl ? (
             <Image
               src={post.author.avatarUrl}
               alt={post.author.displayName}
               width={40}
               height={40}
-              className="w-10 h-10 border-2 border-border"
+              className="w-8 h-8 sm:w-10 sm:h-10 border-2 border-border"
             />
           ) : (
-            <div className="w-10 h-10 bg-muted border-2 border-border" />
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-muted border-2 border-border" />
           )}
         </Link>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
           {/* Author Info */}
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
+          <div className="flex items-center gap-1.5 sm:gap-2 mb-1 flex-wrap text-sm">
             <Link
               href={`/profile/${post.author.username}`}
-              className="font-medium hover:underline"
+              className="font-medium hover:underline truncate max-w-[150px] sm:max-w-none"
             >
               {post.author.displayName}
             </Link>
             {post.author.isArtist && (
-              <span className="text-[10px] px-1.5 py-0.5 bg-primary/20 text-primary font-bold uppercase">
+              <span className="text-[10px] px-1.5 py-0.5 bg-primary/20 text-primary font-bold uppercase flex-shrink-0">
                 Artist
               </span>
             )}
             {post.communities && post.communities[0] && (
               <Link
                 href={`/community/${post.communities[0].slug}`}
-                className="text-sm text-muted-foreground hover:text-foreground"
+                className="text-xs sm:text-sm text-muted-foreground hover:text-foreground truncate max-w-[120px] sm:max-w-none"
               >
                 {post.communities[0].name}
               </Link>
             )}
-            <span className="text-sm text-muted-foreground">
+            <span className="text-xs sm:text-sm text-muted-foreground flex-shrink-0">
               · {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
             </span>
           </div>
 
           {/* Post Content */}
           <Link href={`/post/${post.id}`} className="block">
-            <p className="text-foreground-muted leading-relaxed mb-4 whitespace-pre-wrap">
+            <p className="text-sm sm:text-base text-foreground-muted leading-relaxed mb-3 sm:mb-4 whitespace-pre-wrap break-words">
               {post.content}
             </p>
           </Link>
@@ -104,9 +104,9 @@ export function PostCard({ post }: PostCardProps) {
               rel="noopener noreferrer"
               className="block group"
             >
-              <div className="flex items-center gap-3 p-3 bg-background-elevated border-2 border-border hover:border-primary transition-all mb-4 relative overflow-hidden">
+              <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-background-elevated border-2 border-border hover:border-primary transition-all mb-3 sm:mb-4 relative overflow-hidden">
                 {/* Album Art */}
-                <div className="w-14 h-14 flex-shrink-0 bg-muted border-2 border-border relative overflow-hidden">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 flex-shrink-0 bg-muted border-2 border-border relative overflow-hidden">
                   {post.linkMetadata?.imageUrl ? (
                     <Image
                       src={post.linkMetadata.imageUrl}
@@ -121,10 +121,10 @@ export function PostCard({ post }: PostCardProps) {
 
                 {/* Track Info */}
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-[15px] truncate">
+                  <p className="font-medium text-sm sm:text-[15px] truncate">
                     {post.linkMetadata?.title || (post.linkType === 'track' ? 'Track' : post.linkType === 'album' ? 'Album' : 'Playlist')}
                   </p>
-                  <p className="text-sm text-muted-foreground truncate">
+                  <p className="text-xs sm:text-sm text-muted-foreground truncate">
                     {post.linkMetadata?.artist || post.linkMetadata?.platform || (() => {
                       try {
                         return new URL(post.linkUrl!).hostname
@@ -136,17 +136,17 @@ export function PostCard({ post }: PostCardProps) {
                 </div>
 
                 {/* Play Button */}
-                <div className="w-10 h-10 bg-primary border-2 border-border-strong flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm">
-                  <Play className="w-4 h-4 text-primary-foreground ml-0.5" fill="currentColor" />
+                <div className="w-9 h-9 sm:w-10 sm:h-10 bg-primary border-2 border-border-strong flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm flex-shrink-0">
+                  <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary-foreground ml-0.5" fill="currentColor" />
                 </div>
               </div>
             </a>
           )}
 
           {/* Tags and Actions */}
-          <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center justify-between flex-wrap gap-2 sm:gap-3">
             {/* Tags */}
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-1.5 sm:gap-2 flex-wrap">
               {post.tags.map((tag) => (
                 <Link
                   key={tag}
@@ -159,40 +159,46 @@ export function PostCard({ post }: PostCardProps) {
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5 sm:gap-1">
               <button
                 onClick={handleUpvote}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+                className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 sm:py-1.5 text-xs font-medium transition-colors min-h-[44px] sm:min-h-0 ${
                   hasUpvoted
                     ? 'text-primary bg-primary/10'
                     : 'text-muted-foreground hover:text-foreground hover:bg-card'
                 }`}
+                aria-label="Upvote post"
               >
-                <ArrowUp className="w-4 h-4" />
-                {upvoteCount}
+                <ArrowUp className="w-4 h-4 sm:w-4 sm:h-4" />
+                <span className="hidden xs:inline">{upvoteCount}</span>
+                <span className="xs:hidden">{upvoteCount}</span>
               </button>
               <Link
                 href={`/post/${post.id}`}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
+                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 sm:py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-card transition-colors min-h-[44px] sm:min-h-0"
+                aria-label="View comments"
               >
-                <MessageCircle className="w-4 h-4" />
-                {post.commentCount}
+                <MessageCircle className="w-4 h-4 sm:w-4 sm:h-4" />
+                <span className="hidden xs:inline">{post.commentCount}</span>
+                <span className="xs:hidden">{post.commentCount}</span>
               </Link>
               <button
                 onClick={handleSave}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+                className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 sm:py-1.5 text-xs font-medium transition-colors min-h-[44px] sm:min-h-0 ${
                   hasSaved
                     ? 'text-secondary bg-secondary/10'
                     : 'text-muted-foreground hover:text-foreground hover:bg-card'
                 }`}
+                aria-label={hasSaved ? 'Unsave post' : 'Save post'}
               >
-                <Bookmark className="w-4 h-4" fill={hasSaved ? 'currentColor' : 'none'} />
+                <Bookmark className="w-4 h-4 sm:w-4 sm:h-4" fill={hasSaved ? 'currentColor' : 'none'} />
               </button>
               <button
                 onClick={handleShare}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
+                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 sm:py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-card transition-colors min-h-[44px] sm:min-h-0"
+                aria-label="Share post"
               >
-                <Share className="w-4 h-4" />
+                <Share className="w-4 h-4 sm:w-4 sm:h-4" />
               </button>
             </div>
           </div>

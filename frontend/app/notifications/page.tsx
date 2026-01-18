@@ -173,9 +173,9 @@ export default function NotificationsPage() {
       <div className="max-w-3xl mx-auto">
         {/* Header */}
         <div className="sticky top-0 z-10 bg-background border-b border-border">
-          <div className="flex items-center justify-between px-6 py-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-0 px-4 md:px-6 py-4">
             <div>
-              <h1 className="text-2xl font-bold">Notifications</h1>
+              <h1 className="text-xl md:text-2xl font-bold">Notifications</h1>
               {unreadCount > 0 && (
                 <p className="text-sm text-muted-foreground mt-1">
                   {unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}
@@ -186,7 +186,7 @@ export default function NotificationsPage() {
               <button
                 onClick={() => markAllAsReadMutation.mutate()}
                 disabled={markAllAsReadMutation.isPending}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary hover:bg-accent rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-primary hover:bg-accent rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto min-h-[44px]"
               >
                 <Check className="w-4 h-4" />
                 Mark all as read
@@ -204,7 +204,7 @@ export default function NotificationsPage() {
 
         {/* Error state */}
         {error && (
-          <div className="px-6 py-12 text-center">
+          <div className="px-4 md:px-6 py-12 text-center">
             <Bell className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
             <p className="text-destructive mb-4">Failed to load notifications</p>
             <button onClick={() => refetch()} className="btn-primary">
@@ -215,10 +215,10 @@ export default function NotificationsPage() {
 
         {/* Empty state */}
         {!isLoading && !error && notifications && notifications.length === 0 && (
-          <div className="px-6 py-16 text-center">
+          <div className="px-4 md:px-6 py-16 text-center">
             <Bell className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
             <h2 className="text-xl font-semibold mb-2">No notifications yet</h2>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground px-4">
               When someone follows you, upvotes your posts, or comments, you&apos;ll see it here
             </p>
           </div>
@@ -231,21 +231,21 @@ export default function NotificationsPage() {
               <div
                 key={notification.id}
                 onClick={() => handleNotificationClick(notification)}
-                className={`px-6 py-4 cursor-pointer transition-all hover:bg-accent/50 ${
+                className={`px-4 md:px-6 py-4 cursor-pointer transition-all hover:bg-accent/50 active:bg-accent min-h-[72px] ${
                   !notification.isRead ? 'bg-accent/20' : 'opacity-75'
                 }`}
               >
-                <div className="flex items-start gap-4">
+                <div className="flex items-start gap-3 md:gap-4">
                   {/* Actor Avatar */}
                   <div className="flex-shrink-0">
                     {notification.actor.avatarUrl ? (
                       <img
                         src={notification.actor.avatarUrl}
                         alt={notification.actor.displayName}
-                        className="w-10 h-10 rounded-full object-cover"
+                        className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover"
                       />
                     ) : (
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-white font-semibold">
+                      <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-white font-semibold text-sm md:text-base">
                         {notification.actor.displayName[0]?.toUpperCase() ||
                           notification.actor.username[0]?.toUpperCase()}
                       </div>
@@ -255,7 +255,7 @@ export default function NotificationsPage() {
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2 mb-1">
-                      <p className="text-sm leading-relaxed">
+                      <p className="text-sm md:text-base leading-relaxed">
                         {getNotificationMessage(notification)}
                       </p>
                       <div className="flex-shrink-0">
@@ -263,7 +263,7 @@ export default function NotificationsPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs md:text-sm text-muted-foreground">
                         {formatDistanceToNow(new Date(notification.createdAt), {
                           addSuffix: true,
                         })}

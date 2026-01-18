@@ -42,7 +42,7 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://127.0.0.1:3001/api/:path*', // Backend API URL
+        destination: 'https://trackd.site/api/:path*', // Backend API URL
       },
     ];
   },

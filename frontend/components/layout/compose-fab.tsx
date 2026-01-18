@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from 'react'
 import { Plus, X, Link as LinkIcon, Search, Loader2, ExternalLink, MessageSquare, Music2 } from 'lucide-react'
 import { useCreatePost } from '@/lib/hooks/use-posts'
 import { useAuthStore } from '@/lib/store/auth-store'
+import { usePlayerStore } from '@/lib/store/player-store'
 import type { LinkType } from '@/lib/types'
 import NextImage from 'next/image'
 import { useQueryClient } from '@tanstack/react-query'
@@ -31,6 +32,7 @@ interface SelectedMusic {
 
 export function ComposeFab({ communityId, communitySlug, communityName }: ComposeFabProps) {
   const { user, isAuthenticated } = useAuthStore()
+  const currentTrack = usePlayerStore((state) => state.currentTrack)
   const queryClient = useQueryClient()
 
   // Modal state
@@ -207,9 +209,15 @@ export function ComposeFab({ communityId, communitySlug, communityName }: Compos
   return (
     <>
       {/* Floating Action Button */}
+      {/* Position above bottom nav on mobile: nav (64px) + gap (24px) = 88px */}
+      {/* With player: nav (64px) + player (64px) + gap (24px) = 152px */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+        className={`fixed right-4 md:right-6 z-40 w-14 h-14 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-105 active:scale-95 ${
+          currentTrack
+            ? 'bottom-[152px] md:bottom-[104px]'
+            : 'bottom-[88px] md:bottom-6'
+        }`}
         title="Create post"
       >
         <Plus className="w-6 h-6" />

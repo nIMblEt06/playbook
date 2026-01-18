@@ -54,7 +54,7 @@ async function buildServer() {
   // Register plugins
   await fastify.register(cors, {
     origin: process.env.NODE_ENV === 'production'
-      ? ['https://trackd.app'] // Update with your production domain
+      ? [process.env.FRONTEND_URL || 'https://www.trackd.site', 'https://trackd.site', 'https://www.trackd.site']
       : true,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

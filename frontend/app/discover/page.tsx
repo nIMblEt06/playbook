@@ -49,9 +49,9 @@ function TrackResultCard({ track, isAuthenticated }: { track: SpotifyTrack; isAu
   }
 
   return (
-    <div className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted transition-colors group">
+    <div className="flex items-center gap-3 md:gap-4 p-3 rounded-none border-2 border-transparent hover:border-border hover:bg-muted transition-colors group">
       {/* Album Art */}
-      <div className="w-14 h-14 rounded bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
+      <div className="w-12 h-12 md:w-14 md:h-14 rounded-none border-2 border-border bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
         {track.album?.images && track.album.images.length > 0 ? (
           <Image
             src={spotifyService.getCoverUrl(track.album.images, 'small') || track.album.images[0].url}
@@ -229,7 +229,7 @@ export default function DiscoverPage() {
     <AppLayout>
       <div className="max-w-4xl mx-auto">
         {/* Header with Search */}
-        <div className="px-6 py-6 border-b border-border">
+        <div className="px-4 md:px-6 py-6 border-b border-border">
           <h1 className="text-2xl font-bold mb-4">Discover</h1>
 
           {/* Search Input */}
@@ -240,35 +240,35 @@ export default function DiscoverPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search albums, artists, users, communities..."
-              className="w-full pl-12 pr-4 py-3 bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="w-full pl-12 pr-4 py-3 bg-card border-2 border-border rounded-none text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               autoFocus
             />
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="px-6 py-3 border-b border-border flex gap-1 overflow-x-auto">
+        <div className="px-4 md:px-6 py-3 border-b border-border flex gap-1 overflow-x-auto scrollbar-hide">
           {tabs.map((tab) => {
             const Icon = tab.icon
             return (
               <button
                 key={tab.value}
                 onClick={() => setActiveTab(tab.value)}
-                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all whitespace-nowrap ${
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-none border-2 transition-all whitespace-nowrap ${
                   activeTab === tab.value
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    ? 'bg-primary text-primary-foreground border-border'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted border-border'
                 }`}
               >
                 <Icon className="w-4 h-4" />
-                {tab.label}
+                <span className="hidden sm:inline">{tab.label}</span>
               </button>
             )
           })}
         </div>
 
         {/* Results */}
-        <div className="px-6 py-6">
+        <div className="px-4 md:px-6 py-6">
           {/* Loading */}
           {isLoading && hasQuery && (
             <div className="flex items-center justify-center py-12">
@@ -320,14 +320,14 @@ export default function DiscoverPage() {
                     <Disc3 className="w-5 h-5" />
                     Albums
                   </h2>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-4">
                     {albumResults.items.slice(0, activeTab === 'albums' ? 20 : 8).map((album: SpotifyAlbum) => (
                       <Link
                         key={album.id}
                         href={`/album/${album.id}`}
                         className="group"
                       >
-                        <div className="aspect-square rounded-lg overflow-hidden bg-muted mb-2">
+                        <div className="aspect-square rounded-none border-2 border-border overflow-hidden bg-muted mb-2">
                           {album.images && album.images.length > 0 ? (
                             <Image
                               src={spotifyService.getCoverUrl(album.images, 'medium') || album.images[0].url}
@@ -362,9 +362,9 @@ export default function DiscoverPage() {
                       <Link
                         key={artist.id}
                         href={`/artists/${artist.id}`}
-                        className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted transition-colors"
+                        className="flex items-center gap-3 md:gap-4 p-3 rounded-none border-2 border-transparent hover:border-border hover:bg-muted transition-colors"
                       >
-                        <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
+                        <div className="w-12 h-12 rounded-full border-2 border-border bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
                           {artist.images && artist.images.length > 0 ? (
                             <Image
                               src={spotifyService.getCoverUrl(artist.images, 'small') || artist.images[0].url}
@@ -402,9 +402,9 @@ export default function DiscoverPage() {
                       <Link
                         key={user.id}
                         href={`/profile/${user.username}`}
-                        className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted transition-colors"
+                        className="flex items-center gap-3 md:gap-4 p-3 rounded-none border-2 border-transparent hover:border-border hover:bg-muted transition-colors"
                       >
-                        <div className="w-12 h-12 rounded-full overflow-hidden bg-muted flex-shrink-0">
+                        <div className="w-12 h-12 rounded-full border-2 border-border overflow-hidden bg-muted flex-shrink-0">
                           {user.avatarUrl ? (
                             <Image
                               src={user.avatarUrl}
@@ -446,9 +446,9 @@ export default function DiscoverPage() {
                       <Link
                         key={community.id}
                         href={`/community/${community.slug}`}
-                        className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted transition-colors"
+                        className="flex items-center gap-3 md:gap-4 p-3 rounded-none border-2 border-transparent hover:border-border hover:bg-muted transition-colors"
                       >
-                        <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                        <div className="w-12 h-12 rounded-none border-2 border-border bg-muted flex items-center justify-center flex-shrink-0">
                           <Music2 className="w-6 h-6 text-muted-foreground" />
                         </div>
                         <div className="flex-1 min-w-0">

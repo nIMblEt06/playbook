@@ -122,7 +122,7 @@ export default function AlbumPage() {
 
   return (
     <AppLayout showRightSidebar={false}>
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      <div className="max-w-4xl mx-auto px-4 md:px-6 py-6">
         {/* Back Button */}
         <Link
           href="/"
@@ -135,7 +135,7 @@ export default function AlbumPage() {
         {/* Album Header */}
         <div className="flex flex-col md:flex-row gap-6 mb-8">
           {/* Cover Art */}
-          <div className="w-48 h-48 md:w-64 md:h-64 flex-shrink-0 rounded-lg overflow-hidden bg-muted shadow-lg mx-auto md:mx-0">
+          <div className="w-full max-w-[240px] h-[240px] md:max-w-none md:w-64 md:h-64 flex-shrink-0 rounded-lg overflow-hidden bg-muted shadow-lg mx-auto md:mx-0">
             {album.coverImageUrl ? (
               <Image
                 src={album.coverImageUrl}
@@ -156,7 +156,7 @@ export default function AlbumPage() {
             <span className="text-sm text-muted-foreground uppercase tracking-wide">
               {album.albumType || 'Album'}
             </span>
-            <h1 className="text-3xl font-bold mt-1 mb-2">{album.title}</h1>
+            <h1 className="text-2xl md:text-3xl font-bold mt-1 mb-2 break-words">{album.title}</h1>
             {album.artistSpotifyId ? (
               <Link
                 href={`/artists/${album.artistSpotifyId}`}
@@ -222,10 +222,10 @@ export default function AlbumPage() {
         </div>
 
         {/* Rating Section */}
-        <div className="bg-card border border-border rounded-lg p-6 mb-8">
-          <div className="flex flex-col md:flex-row gap-8">
+        <div className="bg-card border border-border rounded-lg p-4 md:p-6 mb-8">
+          <div className="flex flex-col md:flex-row gap-6 md:gap-8">
             {/* Average Rating */}
-            <div className="text-center">
+            <div className="text-center md:min-w-[120px]">
               <div className="text-4xl font-bold">
                 {album.averageRating ? album.averageRating.toFixed(1) : '—'}
               </div>
@@ -277,18 +277,18 @@ export default function AlbumPage() {
             )}
 
             {/* Quick Rate */}
-            <div className="text-center md:border-l md:border-border md:pl-8">
+            <div className="text-center md:border-l md:border-border md:pl-8 pt-6 md:pt-0 border-t md:border-t-0 border-border">
               <p className="text-sm font-medium mb-3">Your Rating</p>
-              <div className="flex items-center justify-center gap-1">
+              <div className="flex items-center justify-center gap-2">
                 {[1, 2, 3, 4, 5].map((rating) => (
                   <button
                     key={rating}
                     onClick={() => handleQuickRate(rating)}
-                    className="p-1 hover:scale-110 transition-transform"
+                    className="p-2 hover:scale-110 transition-transform touch-manipulation active:scale-95"
                     disabled={rateAlbum.isPending}
                   >
                     <Star
-                      className={`w-8 h-8 ${
+                      className={`w-9 h-9 md:w-8 md:h-8 ${
                         (selectedRating || album.userRating || 0) >= rating
                           ? 'fill-yellow-400 text-yellow-400'
                           : 'text-muted-foreground hover:text-yellow-400'
@@ -369,7 +369,7 @@ export default function AlbumPage() {
           ) : isTracksExpanded && (
             <div className="bg-card border border-border rounded-lg overflow-hidden">
               {/* Header */}
-              <div className="grid grid-cols-[auto_1fr_auto] gap-4 px-4 py-2 border-b border-border text-xs text-muted-foreground uppercase tracking-wide">
+              <div className="hidden md:grid grid-cols-[auto_1fr_auto] gap-4 px-4 py-2 border-b border-border text-xs text-muted-foreground uppercase tracking-wide">
                 <span className="w-12">#</span>
                 <span>Title</span>
                 <span className="flex items-center gap-1">
@@ -382,14 +382,14 @@ export default function AlbumPage() {
                 {tracks.map((track, index) => (
                   <div
                     key={track.id}
-                    className="grid grid-cols-[auto_1fr_auto] gap-4 px-4 py-3 hover:bg-muted/50 transition-colors group items-center"
+                    className="grid grid-cols-[auto_1fr_auto] gap-3 md:gap-4 px-3 md:px-4 py-3 md:py-3 hover:bg-muted/50 transition-colors group items-center touch-manipulation"
                   >
                     {/* Track number / Play button */}
-                    <div className="w-12 flex items-center justify-center">
-                      <span className="text-sm text-muted-foreground group-hover:hidden">
+                    <div className="w-10 md:w-12 flex items-center justify-center">
+                      <span className="text-sm text-muted-foreground md:group-hover:hidden">
                         {track.position || index + 1}
                       </span>
-                      <div className="hidden group-hover:block">
+                      <div className="hidden md:group-hover:block">
                         <PlayButton
                           track={getPlayerTrack(track)}
                           tracks={getPlayerTracks()}
@@ -407,7 +407,7 @@ export default function AlbumPage() {
                     </div>
 
                     {/* Duration */}
-                    <span className="text-sm text-muted-foreground tabular-nums">
+                    <span className="text-xs md:text-sm text-muted-foreground tabular-nums whitespace-nowrap">
                       {formatDuration(track.duration)}
                     </span>
                   </div>
@@ -419,12 +419,12 @@ export default function AlbumPage() {
 
         {/* Reviews Section */}
         <div>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
             <h2 className="text-xl font-semibold">Reviews</h2>
             <select
               value={reviewSort}
               onChange={(e) => setReviewSort(e.target.value as typeof reviewSort)}
-              className="input text-sm py-2"
+              className="input text-sm py-2 w-full sm:w-auto"
             >
               <option value="recent">Most Recent</option>
               <option value="engaged">Most Engaged</option>

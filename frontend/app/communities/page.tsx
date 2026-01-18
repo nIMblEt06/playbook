@@ -64,33 +64,33 @@ export default function CommunitiesPage() {
     <AppLayout>
       <div className="max-w-5xl mx-auto">
         {/* Header */}
-        <div className="px-6 py-6 border-b-2 border-border">
-          <div className="flex items-center justify-between mb-6">
+        <div className="px-4 md:px-6 py-6 border-b-2 border-border">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-3">
-              <Users className="w-8 h-8 text-primary" />
-              <h1 className="text-3xl font-display font-bold uppercase">Communities</h1>
+              <Users className="w-7 h-7 sm:w-8 sm:h-8 text-primary" />
+              <h1 className="text-2xl sm:text-3xl font-display font-bold uppercase">Communities</h1>
             </div>
-            <Link href="/communities/create" className="btn-primary flex items-center gap-2">
+            <Link href="/communities/create" className="btn-primary flex items-center gap-2 w-full sm:w-auto justify-center min-h-[44px]">
               <Plus className="w-5 h-5" />
-              Create Community
+              <span className="whitespace-nowrap">Create Community</span>
             </Link>
           </div>
 
           {/* Search */}
-          <div className="relative">
+          <div className="relative w-full">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search communities..."
-              className="input w-full pl-12"
+              className="input w-full pl-12 min-h-[44px]"
             />
             <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
           </div>
         </div>
 
         {/* Communities Grid */}
-        <div className="px-6 py-6">
+        <div className="px-4 md:px-6 py-6">
           {isLoading && (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -110,7 +110,7 @@ export default function CommunitiesPage() {
           )}
 
           {!isLoading && filteredCommunities.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {filteredCommunities.map((community) => (
                 <CommunityCard
                   key={community.id}
@@ -183,10 +183,10 @@ function CommunityCard({ community, onJoinLeave, isLoading }: CommunityCardProps
               onJoinLeave(community)
             }}
             disabled={isLoading}
-            className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wide border-2 transition-all flex items-center gap-1.5 ${
+            className={`px-3 sm:px-4 py-2 sm:py-1.5 text-xs font-bold uppercase tracking-wide border-2 transition-all flex items-center gap-1.5 min-h-[44px] sm:min-h-0 ${
               community.isMember
-                ? 'bg-transparent text-foreground border-border hover:bg-card-hover hover:border-border-strong'
-                : 'bg-primary text-primary-foreground border-border-strong hover:shadow-primary hover:-translate-x-0.5 hover:-translate-y-0.5'
+                ? 'bg-transparent text-foreground border-border hover:bg-card-hover hover:border-border-strong active:bg-card-hover'
+                : 'bg-primary text-primary-foreground border-border-strong hover:shadow-primary hover:-translate-x-0.5 hover:-translate-y-0.5 active:translate-x-0 active:translate-y-0'
             }`}
           >
             {isLoading ? (

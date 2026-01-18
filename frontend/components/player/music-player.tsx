@@ -197,11 +197,11 @@ export function MusicPlayer() {
   const volumeSliderValue = volume / 100
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 h-20 border-t-2 border-border bg-card">
-      <div className="mx-auto flex h-full max-w-screen-2xl items-center gap-4 px-4">
+    <div className="fixed bottom-0 left-0 right-0 z-50 h-16 md:h-20 border-t-2 border-border bg-card">
+      <div className="mx-auto flex h-full max-w-screen-2xl items-center gap-2 md:gap-4 px-3 md:px-4">
         {/* Track Info - Left Section */}
-        <div className="flex w-[300px] items-center gap-3">
-          <div className="relative h-14 w-14 flex-shrink-0 overflow-hidden border-2 border-card-border bg-background-secondary">
+        <div className="flex flex-1 md:flex-none md:w-[300px] items-center gap-2 md:gap-3 min-w-0">
+          <div className="relative h-10 w-10 md:h-14 md:w-14 flex-shrink-0 overflow-hidden border-2 border-card-border bg-background-secondary">
             {currentTrack.coverUrl ? (
               <img
                 src={currentTrack.coverUrl}
@@ -210,29 +210,29 @@ export function MusicPlayer() {
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                <Play className="h-6 w-6" />
+                <Play className="h-4 w-4 md:h-6 md:w-6" />
               </div>
             )}
           </div>
 
-          <div className="flex-1 overflow-hidden">
-            <div className="truncate font-mono text-sm font-bold text-foreground">
+          <div className="flex-1 overflow-hidden min-w-0">
+            <div className="truncate font-mono text-xs md:text-sm font-bold text-foreground">
               {currentTrack.name}
             </div>
-            <div className="truncate font-mono text-xs text-muted-foreground">
+            <div className="truncate font-mono text-[10px] md:text-xs text-muted-foreground">
               {currentTrack.artists.join(', ')}
             </div>
           </div>
         </div>
 
         {/* Main Controls - Center Section */}
-        <div className="flex flex-1 flex-col items-center gap-2">
-          <div className="flex items-center gap-3">
-            {/* Shuffle */}
+        <div className="flex md:flex-1 flex-col items-center gap-1 md:gap-2">
+          <div className="flex items-center gap-1 md:gap-3">
+            {/* Shuffle - hidden on mobile */}
             <button
               onClick={handleShuffle}
               disabled={!isPremium}
-              className={`p-2 transition-colors hover:bg-muted ${
+              className={`hidden md:block p-2 transition-colors hover:bg-muted ${
                 isShuffled ? 'text-primary' : 'text-foreground-muted'
               } ${!isPremium ? 'cursor-not-allowed opacity-30' : ''}`}
               aria-label="Shuffle"
@@ -240,11 +240,11 @@ export function MusicPlayer() {
               <Shuffle className="h-4 w-4" />
             </button>
 
-            {/* Previous */}
+            {/* Previous - hidden on mobile */}
             <button
               onClick={handlePrevious}
               disabled={!isPremium}
-              className={`p-2 transition-colors hover:bg-muted ${
+              className={`hidden md:block p-2 transition-colors hover:bg-muted ${
                 !isPremium ? 'cursor-not-allowed opacity-30' : ''
               }`}
               aria-label="Previous track"
@@ -252,24 +252,24 @@ export function MusicPlayer() {
               <SkipBack className="h-5 w-5 text-foreground" />
             </button>
 
-            {/* Play/Pause */}
+            {/* Play/Pause - always visible */}
             <button
               onClick={handlePlayPause}
-              className="rounded-full bg-primary p-3 text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md active:scale-95"
+              className="rounded-full bg-primary p-2 md:p-3 text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md active:scale-95"
               aria-label={isPlaying ? 'Pause' : 'Play'}
             >
               {isPlaying ? (
-                <Pause className="h-5 w-5" fill="currentColor" />
+                <Pause className="h-4 w-4 md:h-5 md:w-5" fill="currentColor" />
               ) : (
-                <Play className="h-5 w-5" fill="currentColor" />
+                <Play className="h-4 w-4 md:h-5 md:w-5" fill="currentColor" />
               )}
             </button>
 
-            {/* Next */}
+            {/* Next - hidden on mobile */}
             <button
               onClick={handleNext}
               disabled={!isPremium}
-              className={`p-2 transition-colors hover:bg-muted ${
+              className={`hidden md:block p-2 transition-colors hover:bg-muted ${
                 !isPremium ? 'cursor-not-allowed opacity-30' : ''
               }`}
               aria-label="Next track"
@@ -277,11 +277,11 @@ export function MusicPlayer() {
               <SkipForward className="h-5 w-5 text-foreground" />
             </button>
 
-            {/* Repeat */}
+            {/* Repeat - hidden on mobile */}
             <button
               onClick={handleRepeat}
               disabled={!isPremium}
-              className={`p-2 transition-colors hover:bg-muted ${
+              className={`hidden md:block p-2 transition-colors hover:bg-muted ${
                 repeatMode !== 'off' ? 'text-primary' : 'text-foreground-muted'
               } ${!isPremium ? 'cursor-not-allowed opacity-30' : ''}`}
               aria-label={`Repeat ${repeatMode}`}
@@ -294,8 +294,8 @@ export function MusicPlayer() {
             </button>
           </div>
 
-          {/* Progress Bar */}
-          <div className="flex w-full max-w-2xl items-center gap-2">
+          {/* Progress Bar - hidden on mobile */}
+          <div className="hidden md:flex w-full max-w-2xl items-center gap-2">
             <span className="font-mono text-xs text-muted-foreground">
               {formatTime(position)}
             </span>
@@ -320,8 +320,8 @@ export function MusicPlayer() {
           </div>
         </div>
 
-        {/* Volume & Extra - Right Section */}
-        <div className="flex w-[200px] items-center justify-end gap-2">
+        {/* Volume & Extra - Right Section - hidden on mobile */}
+        <div className="hidden md:flex w-[200px] items-center justify-end gap-2">
           <button
             onClick={handleMute}
             className="p-2 text-foreground-muted transition-colors hover:bg-muted hover:text-foreground"

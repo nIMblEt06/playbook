@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { Music } from 'lucide-react'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://trackd.site'
 
 export default function LoginPage() {
   const router = useRouter()
