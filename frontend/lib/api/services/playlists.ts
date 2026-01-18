@@ -23,6 +23,11 @@ export interface AddTrackRequest {
 }
 
 export const playlistsService = {
+  async getPlaylists(): Promise<Playlist[]> {
+    const response = await apiClient.get<{ playlists: Playlist[] }>('/api/playlists')
+    return response.data.playlists
+  },
+
   async createPlaylist(data: CreatePlaylistRequest): Promise<Playlist> {
     const response = await apiClient.post<{ playlist: Playlist }>('/api/playlists', data)
     return response.data.playlist

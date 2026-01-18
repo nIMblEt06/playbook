@@ -28,6 +28,24 @@ export async function postRoutes(fastify: FastifyInstance) {
     }
   );
 
+  // GET /api/posts/saved - must be before /:id to avoid being matched as an ID
+  fastify.get<{ Querystring: { page?: string; limit?: string } }>(
+    '/saved',
+    { preHandler: [fastify.authenticate] },
+    async (request, reply) => {
+      try {
+        const pagination = paginationSchema.parse(request.query);
+        const result = await postService.getSavedPosts(request.user.userId, pagination);
+        return reply.send(result);
+      } catch (error) {
+        if (error instanceof Error) {
+          return reply.code(400).send({ error: error.message });
+        }
+        throw error;
+      }
+    }
+  );
+
   // GET /api/posts/:id
   fastify.get<{ Params: PostParams }>(
     '/:id',

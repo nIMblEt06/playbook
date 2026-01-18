@@ -71,7 +71,15 @@ export function useSavePost() {
       unsave ? postsService.unsavePost(id) : postsService.savePost(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['posts'] })
+      queryClient.invalidateQueries({ queryKey: ['saved-posts'] })
     },
+  })
+}
+
+export function useSavedPosts(params?: { page?: number; limit?: number }) {
+  return useQuery({
+    queryKey: ['saved-posts', params],
+    queryFn: () => postsService.getSavedPosts(params),
   })
 }
 

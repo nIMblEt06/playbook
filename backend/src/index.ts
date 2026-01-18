@@ -20,8 +20,17 @@ import { notificationRoutes } from './routes/notification.routes.js';
 import { searchRoutes } from './routes/search.routes.js';
 import { playlistRoutes } from './routes/playlist.routes.js';
 import { uploadRoutes } from './routes/upload.routes.js';
+import { albumRoutes } from './routes/album.routes.js';
+import { artistRoutes } from './routes/artist.routes.js';
+import { reviewRoutes } from './routes/review.routes.js';
+import { discoverRoutes } from './routes/discover.routes.js';
+import { tagsRoutes } from './routes/tags.routes.js';
+import { linksRoutes } from './routes/links.routes.js';
+import { spotifyAuthRoutes } from './routes/spotify-auth.routes.js';
+import { spotifySearchRoutes } from './routes/spotify-search.routes.js';
+import { playbackRoutes } from './routes/playback.routes.js';
 
-const PORT = parseInt(process.env.PORT || '3000', 10);
+const PORT = parseInt(process.env.PORT || '3001', 10);
 const HOST = process.env.HOST || '0.0.0.0';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
 
@@ -45,9 +54,10 @@ async function buildServer() {
   // Register plugins
   await fastify.register(cors, {
     origin: process.env.NODE_ENV === 'production'
-      ? ['https://playbook.app'] // Update with your production domain
+      ? ['https://trackd.app'] // Update with your production domain
       : true,
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
 
   await fastify.register(jwt, {
@@ -81,7 +91,7 @@ async function buildServer() {
   // API info
   fastify.get('/api', async () => {
     return {
-      name: 'Play Book API',
+      name: 'Trackd API',
       version: '1.0.0',
       description: 'Music-focused social platform API',
     };
@@ -98,6 +108,21 @@ async function buildServer() {
   await fastify.register(searchRoutes, { prefix: '/api/search' });
   await fastify.register(playlistRoutes, { prefix: '/api/playlists' });
   await fastify.register(uploadRoutes, { prefix: '/api/upload' });
+  await fastify.register(albumRoutes, { prefix: '/api/albums' });
+  await fastify.register(artistRoutes, { prefix: '/api/artists' });
+  await fastify.register(reviewRoutes, { prefix: '/api/reviews' });
+  await fastify.register(discoverRoutes, { prefix: '/api/discover' });
+  await fastify.register(tagsRoutes, { prefix: '/api/tags' });
+  await fastify.register(linksRoutes, { prefix: '/api/links' });
+
+  // Spotify OAuth routes (no prefix - routes define their own paths)
+  await fastify.register(spotifyAuthRoutes);
+
+  // Spotify search routes
+  await fastify.register(spotifySearchRoutes, { prefix: '/api/spotify' });
+
+  // Spotify playback routes
+  await fastify.register(playbackRoutes, { prefix: '/api/playback' });
 
   // Global error handler
   fastify.setErrorHandler((error: Error & { validation?: unknown; statusCode?: number }, request, reply) => {

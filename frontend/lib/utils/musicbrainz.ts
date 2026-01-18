@@ -1,53 +1,26 @@
-const MUSICBRAINZ_API_BASE = 'https://musicbrainz.org/ws/2'
-const COVERART_API_BASE = 'https://coverartarchive.org'
-const USER_AGENT = 'Playbook/1.0.0'
+/**
+ * Spotify Search Integration
+ *
+ * This file provides the same interface as the old MusicBrainz integration
+ * but uses the Spotify API via our backend instead.
+ */
 
-// Rate limiting: MusicBrainz allows 1 request per second
-let lastRequestTime = 0
-const MIN_REQUEST_INTERVAL = 1000
+import { spotifyService, type SpotifyTrack, type SpotifyAlbum } from '../api/services/spotify'
 
-async function rateLimitedFetch(url: string): Promise<Response> {
-  const now = Date.now()
-  const timeSinceLastRequest = now - lastRequestTime
-  
-  if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
-    await new Promise(resolve => setTimeout(resolve, MIN_REQUEST_INTERVAL - timeSinceLastRequest))
-  }
-  
-  lastRequestTime = Date.now()
-  
-  return fetch(url, {
-    headers: {
-      'User-Agent': USER_AGENT,
-      'Accept': 'application/json',
-    },
-  })
-}
-
-export interface ArtistCredit {
-  artist: {
-    id: string
-    name: string
-  }
+// Types maintained for compatibility with create-playlist-dialog
+export interface Recording {
+  id: string
+  title: string
+  length?: number
+  'artist-credit'?: Array<{ artist: { id: string; name: string } }>
+  releases?: Array<{ id: string; title: string }>
 }
 
 export interface Release {
   id: string
   title: string
-  'artist-credit': ArtistCredit[]
   date?: string
-  'release-group'?: {
-    id: string
-    'primary-type'?: string
-  }
-  media?: Medium[]
-}
-
-export interface Medium {
-  position: number
-  format?: string
-  'track-count': number
-  tracks?: Track[]
+  'artist-credit'?: Array<{ artist: { id: string; name: string } }>
 }
 
 export interface Track {
@@ -55,195 +28,162 @@ export interface Track {
   number: string
   title: string
   length?: number
-  recording?: Recording
-}
-
-export interface Recording {
-  id: string
-  title: string
-  length?: number
-  'artist-credit': ArtistCredit[]
-  releases?: Release[]
-}
-
-interface SearchResponse<T> {
-  items: T[]
-  total: number
-  offset: number
+  recording?: { id: string }
 }
 
 /**
- * Search for tracks on MusicBrainz with optimized query
+ * Convert Spotify track to Recording format (for compatibility)
+ */
+function spotifyTrackToRecording(track: SpotifyTrack): Recording {
+  return {
+    id: track.id,
+    title: track.name,
+    length: track.duration_ms,
+    'artist-credit': track.artists.map((artist) => ({
+      artist: { id: artist.id, name: artist.name },
+    })),
+    releases: track.album
+      ? [{ id: track.album.id, title: track.album.name }]
+      : undefined,
+  }
+}
+
+/**
+ * Convert Spotify album to Release format (for compatibility)
+ */
+function spotifyAlbumToRelease(album: SpotifyAlbum): Release {
+  return {
+    id: album.id,
+    title: album.name,
+    date: album.release_date,
+    'artist-credit': album.artists.map((artist) => ({
+      artist: { id: artist.id, name: artist.name },
+    })),
+  }
+}
+
+/**
+ * Convert Spotify track to Track format (for album tracks)
+ */
+function spotifyTrackToTrack(track: SpotifyTrack): Track {
+  return {
+    id: track.id,
+    number: track.track_number.toString(),
+    title: track.name,
+    length: track.duration_ms,
+    recording: { id: track.id },
+  }
+}
+
+// Store album images for getCoverArt lookups
+const albumImageCache = new Map<string, string>()
+
+/**
+ * Search for tracks using Spotify API
  */
 export async function searchTracks(
   query: string,
   page: number = 1,
   limit: number = 10
-): Promise<SearchResponse<Recording>> {
-  const offset = (page - 1) * limit
-  
-  // Build optimized search query
-  // Search in recording (track name), artist, and release fields for best results
-  const searchQuery = query.trim()
-  
-  const params = new URLSearchParams({
-    query: searchQuery,
-    fmt: 'json',
-    limit: Math.min(limit, 100).toString(), // API max is 100
-    offset: offset.toString(),
-  })
-  
-  const url = `${MUSICBRAINZ_API_BASE}/recording?${params.toString()}`
-  
+): Promise<{ items: Recording[]; total: number }> {
   try {
-    const response = await rateLimitedFetch(url)
-    
-    if (!response.ok) {
-      throw new Error(`MusicBrainz API error: ${response.status}`)
-    }
-    
-    const data = await response.json()
-    
+    const result = await spotifyService.searchTracks(query, page, limit)
+
+    // Cache album images for getCoverArt lookups
+    result.items.forEach((track) => {
+      if (track.album?.images?.length > 0) {
+        const coverUrl = spotifyService.getCoverUrl(track.album.images, 'medium')
+        if (coverUrl) {
+          albumImageCache.set(track.album.id, coverUrl)
+        }
+      }
+    })
+
     return {
-      items: data.recordings || [],
-      total: data.count || 0,
-      offset: data.offset || 0,
+      items: result.items.map(spotifyTrackToRecording),
+      total: result.total,
     }
   } catch (error) {
-    console.error('Error searching tracks:', error)
-    return { items: [], total: 0, offset: 0 }
+    console.error('searchTracks error:', error)
+    return { items: [], total: 0 }
   }
 }
 
 /**
- * Search for albums (releases) on MusicBrainz with optimized query
- * Filters for official releases and albums only
+ * Search for albums using Spotify API
  */
 export async function searchAlbums(
   query: string,
   page: number = 1,
   limit: number = 10
-): Promise<SearchResponse<Release>> {
-  const offset = (page - 1) * limit
-  
-  // Build optimized search query
-  // Search for albums with status:official to get quality results
-  // primarytype:album to exclude singles, EPs, etc.
-  const searchQuery = query.trim()
-  const enhancedQuery = `${searchQuery} AND status:official AND primarytype:album`
-  
-  const params = new URLSearchParams({
-    query: enhancedQuery,
-    fmt: 'json',
-    limit: Math.min(limit, 100).toString(), // API max is 100
-    offset: offset.toString(),
-  })
-  
-  const url = `${MUSICBRAINZ_API_BASE}/release?${params.toString()}`
-  
+): Promise<{ items: Release[]; total: number }> {
   try {
-    const response = await rateLimitedFetch(url)
-    
-    if (!response.ok) {
-      throw new Error(`MusicBrainz API error: ${response.status}`)
-    }
-    
-    const data = await response.json()
-    
+    const result = await spotifyService.searchAlbums(query, page, limit)
+
+    // Cache album images for getCoverArt lookups
+    result.items.forEach((album) => {
+      if (album.images?.length > 0) {
+        const coverUrl = spotifyService.getCoverUrl(album.images, 'medium')
+        if (coverUrl) {
+          albumImageCache.set(album.id, coverUrl)
+        }
+      }
+    })
+
     return {
-      items: data.releases || [],
-      total: data.count || 0,
-      offset: data.offset || 0,
+      items: result.items.map(spotifyAlbumToRelease),
+      total: result.total,
     }
   } catch (error) {
-    console.error('Error searching albums:', error)
-    return { items: [], total: 0, offset: 0 }
+    console.error('searchAlbums error:', error)
+    return { items: [], total: 0 }
   }
 }
 
 /**
- * Get tracks from a release/album
+ * Get cover art URL for an album
+ * Uses cached images from search results or fetches album details
  */
-export async function getAlbumTracks(releaseId: string): Promise<Track[]> {
-  const params = new URLSearchParams({
-    fmt: 'json',
-    inc: 'recordings', // Include recording information
-  })
-  
-  const url = `${MUSICBRAINZ_API_BASE}/release/${releaseId}?${params.toString()}`
-  
+export async function getCoverArt(releaseId: string): Promise<string | null> {
+  // Check cache first
+  const cached = albumImageCache.get(releaseId)
+  if (cached) return cached
+
+  // Fetch album details if not cached
   try {
-    const response = await rateLimitedFetch(url)
-    
-    if (!response.ok) {
-      throw new Error(`MusicBrainz API error: ${response.status}`)
-    }
-    
-    const data = await response.json()
-    
-    // Extract all tracks from all media (discs)
-    const allTracks: Track[] = []
-    
-    if (data.media && Array.isArray(data.media)) {
-      for (const medium of data.media) {
-        if (medium.tracks && Array.isArray(medium.tracks)) {
-          allTracks.push(...medium.tracks)
-        }
+    const album = await spotifyService.getAlbum(releaseId)
+    if (album?.images?.length > 0) {
+      const coverUrl = spotifyService.getCoverUrl(album.images, 'medium')
+      if (coverUrl) {
+        albumImageCache.set(releaseId, coverUrl)
+        return coverUrl
       }
     }
-    
-    return allTracks
   } catch (error) {
-    console.error('Error fetching album tracks:', error)
+    console.error('getCoverArt error:', error)
+  }
+
+  return null
+}
+
+/**
+ * Get tracks from an album
+ */
+export async function getAlbumTracks(releaseId: string): Promise<Track[]> {
+  try {
+    const tracks = await spotifyService.getAlbumTracks(releaseId)
+
+    // Cache album image if available from first track
+    if (tracks.length > 0 && tracks[0].album?.images?.length > 0) {
+      const coverUrl = spotifyService.getCoverUrl(tracks[0].album.images, 'medium')
+      if (coverUrl) {
+        albumImageCache.set(releaseId, coverUrl)
+      }
+    }
+
+    return tracks.map(spotifyTrackToTrack)
+  } catch (error) {
+    console.error('getAlbumTracks error:', error)
     return []
   }
 }
-
-/**
- * Get cover art URL for a release
- */
-export async function getCoverArt(releaseId: string): Promise<string | null> {
-  const url = `${COVERART_API_BASE}/release/${releaseId}`
-  
-  try {
-    const response = await fetch(url, {
-      headers: {
-        'Accept': 'application/json',
-      },
-    })
-    
-    if (!response.ok) {
-      return null
-    }
-    
-    const data = await response.json()
-    
-    // Try to get the front cover, or fall back to the first image
-    const frontCover = data.images?.find((img: any) => 
-      img.front === true || img.types?.includes('Front')
-    )
-    
-    if (frontCover?.thumbnails?.small) {
-      return frontCover.thumbnails.small
-    }
-    
-    if (frontCover?.image) {
-      return frontCover.image
-    }
-    
-    // Fall back to first image
-    if (data.images?.[0]?.thumbnails?.small) {
-      return data.images[0].thumbnails.small
-    }
-    
-    if (data.images?.[0]?.image) {
-      return data.images[0].image
-    }
-    
-    return null
-  } catch (error) {
-    console.error('Error fetching cover art:', error)
-    return null
-  }
-}
-

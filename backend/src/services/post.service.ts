@@ -1,6 +1,7 @@
 import { prisma } from '../utils/prisma.js';
 import { redis } from '../utils/redis.js';
 import type { CreatePostInput, PostQueryInput } from '../schemas/post.schema.js';
+import * as linkParserService from './link-parser.service.js';
 
 const NEW_AND_UPCOMING_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -27,7 +28,7 @@ export class PostService {
       }
     }
 
-    // Validate communities exist
+    // Validate communities exist and user is a member
     if (communityIds.length > 0) {
       const communities = await prisma.community.findMany({
         where: { id: { in: communityIds } },
@@ -35,6 +36,38 @@ export class PostService {
 
       if (communities.length !== communityIds.length) {
         throw new Error('One or more communities not found');
+      }
+
+      // Verify user is a member of all communities
+      const memberships = await prisma.communityMembership.findMany({
+        where: {
+          userId: authorId,
+          communityId: { in: communityIds },
+        },
+      });
+
+      if (memberships.length !== communityIds.length) {
+        throw new Error('You must be a member of all communities to post');
+      }
+    }
+
+    // Fetch link metadata if URL is provided
+    let linkMetadata = null;
+    if (linkUrl) {
+      try {
+        const metadata = await linkParserService.fetchLinkMetadata(linkUrl);
+        if (metadata) {
+          linkMetadata = {
+            title: metadata.title,
+            artist: metadata.artist,
+            albumName: metadata.albumName,
+            imageUrl: metadata.coverArtUrl,
+            platform: metadata.source,
+          };
+        }
+      } catch (error) {
+        console.warn('Failed to fetch link metadata:', error);
+        // Continue without metadata
       }
     }
 
@@ -45,6 +78,7 @@ export class PostService {
         content,
         linkUrl,
         linkType,
+        linkMetadata: linkMetadata ? JSON.parse(JSON.stringify(linkMetadata)) : undefined,
         tags,
         isNewAndUpcoming: isNewAndUpcoming ?? false,
         communities: {
@@ -70,7 +104,6 @@ export class PostService {
                 id: true,
                 slug: true,
                 name: true,
-                type: true,
               },
             },
           },
@@ -101,7 +134,6 @@ export class PostService {
                 id: true,
                 slug: true,
                 name: true,
-                type: true,
               },
             },
           },
@@ -310,6 +342,83 @@ export class PostService {
     });
 
     return { success: true };
+  }
+
+
+  async getSavedPosts(userId: string, query: { page?: number; limit?: number }) {
+    const page = query.page || 1;
+    const limit = query.limit || 20;
+    const skip = (page - 1) * limit;
+
+    const [savedPosts, total] = await Promise.all([
+      prisma.savedPost.findMany({
+        where: { userId },
+        skip,
+        take: limit,
+        orderBy: { savedAt: 'desc' },
+        include: {
+          post: {
+            include: {
+              author: {
+                select: {
+                  id: true,
+                  username: true,
+                  displayName: true,
+                  avatarUrl: true,
+                  isArtist: true,
+                },
+              },
+              communities: {
+                include: {
+                  community: {
+                    select: {
+                      id: true,
+                      slug: true,
+                      name: true,
+                    },
+                  },
+                },
+              },
+              _count: {
+                select: {
+                  comments: true,
+                  upvotes: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+      prisma.savedPost.count({ where: { userId } }),
+    ]);
+
+    // Get upvote status for current user
+    const postIds = savedPosts.map((sp) => sp.post.id);
+    const userUpvotes = await prisma.upvote.findMany({
+      where: {
+        userId,
+        targetType: 'post',
+        targetId: { in: postIds },
+      },
+      select: { targetId: true },
+    });
+    const upvotedPostIds = new Set(userUpvotes.map((u) => u.targetId));
+
+    const postsWithStatus = savedPosts.map((sp) => ({
+      ...sp.post,
+      hasUpvoted: upvotedPostIds.has(sp.post.id),
+      hasSaved: true, // All saved posts are saved by definition
+    }));
+
+    return {
+      data: postsWithStatus,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 }
 

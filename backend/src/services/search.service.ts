@@ -1,7 +1,7 @@
 import { prisma } from '../utils/prisma.js';
 import type { PaginationInput } from '../schemas/user.schema.js';
 
-type SearchType = 'users' | 'communities' | 'posts';
+type SearchType = 'all' | 'users' | 'communities' | 'posts';
 
 export class SearchService {
   async search(query: string, type: SearchType, pagination: PaginationInput) {
@@ -9,12 +9,23 @@ export class SearchService {
     const skip = (page - 1) * limit;
 
     switch (type) {
+      case 'all': {
+        // Return both users and communities for combined search
+        const [usersResult, communitiesResult] = await Promise.all([
+          this.searchUsers(query, 0, 10), // Limit to 10 each for 'all' view
+          this.searchCommunities(query, 0, 10),
+        ]);
+        return {
+          users: usersResult.data,
+          communities: communitiesResult.data,
+        };
+      }
       case 'users':
-        return this.searchUsers(query, skip, limit);
+        return { users: (await this.searchUsers(query, skip, limit)).data };
       case 'communities':
-        return this.searchCommunities(query, skip, limit);
+        return { communities: (await this.searchCommunities(query, skip, limit)).data };
       case 'posts':
-        return this.searchPosts(query, skip, limit);
+        return { posts: (await this.searchPosts(query, skip, limit)).data };
       default:
         throw new Error('Invalid search type');
     }
@@ -94,7 +105,6 @@ export class SearchService {
           slug: true,
           name: true,
           description: true,
-          type: true,
           coverImageUrl: true,
           memberCount: true,
           _count: {

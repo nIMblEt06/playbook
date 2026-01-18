@@ -7,30 +7,18 @@ import type { Post } from '@/lib/types'
 import { useUpvotePost, useSavePost } from '@/lib/hooks/use-posts'
 import { formatDistanceToNow } from 'date-fns'
 import { useState } from 'react'
-import { PlaylistPostCard } from './playlist-post-card'
 
 interface PostCardProps {
   post: Post
 }
 
 export function PostCard({ post }: PostCardProps) {
-  // All hooks must be called before any conditional returns
   const [hasUpvoted, setHasUpvoted] = useState(post.hasUpvoted || false)
   const [hasSaved, setHasSaved] = useState(post.hasSaved || false)
   const [upvoteCount, setUpvoteCount] = useState(post.upvoteCount)
 
   const upvoteMutation = useUpvotePost()
   const saveMutation = useSavePost()
-
-  // Use special playlist card only for internal custom playlists
-  // Check if the linkUrl is an internal playlist (contains /playlist/ in the path)
-  const isCustomPlaylist = post.linkType === 'playlist' && 
-    post.linkUrl && 
-    (post.linkUrl.includes('/playlist/') || post.linkUrl.startsWith('/playlist/'))
-  
-  if (isCustomPlaylist) {
-    return <PlaylistPostCard post={post} />
-  }
 
   const handleUpvote = () => {
     const newUpvoted = !hasUpvoted
@@ -59,7 +47,7 @@ export function PostCard({ post }: PostCardProps) {
     <article className="px-6 py-5 hover:bg-card transition-colors border-b-2 border-border">
       <div className="flex gap-3">
         {/* Avatar */}
-        <Link href={`/u/${post.author.username}`}>
+        <Link href={`/profile/${post.author.username}`}>
           {post.author.avatarUrl ? (
             <Image
               src={post.author.avatarUrl}
@@ -78,7 +66,7 @@ export function PostCard({ post }: PostCardProps) {
           {/* Author Info */}
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <Link
-              href={`/u/${post.author.username}`}
+              href={`/profile/${post.author.username}`}
               className="font-medium hover:underline"
             >
               {post.author.displayName}
@@ -90,11 +78,10 @@ export function PostCard({ post }: PostCardProps) {
             )}
             {post.communities && post.communities[0] && (
               <Link
-                href={`/${post.communities[0].type === 'artist' ? 'a' : 'c'}/${post.communities[0].slug}`}
+                href={`/community/${post.communities[0].slug}`}
                 className="text-sm text-muted-foreground hover:text-foreground"
               >
-                {post.communities[0].type === 'artist' ? 'a/' : 'c/'}
-                {post.communities[0].slug}
+                {post.communities[0].name}
               </Link>
             )}
             <span className="text-sm text-muted-foreground">
@@ -120,16 +107,31 @@ export function PostCard({ post }: PostCardProps) {
               <div className="flex items-center gap-3 p-3 bg-background-elevated border-2 border-border hover:border-primary transition-all mb-4 relative overflow-hidden">
                 {/* Album Art */}
                 <div className="w-14 h-14 flex-shrink-0 bg-muted border-2 border-border relative overflow-hidden">
+                  {post.linkMetadata?.imageUrl ? (
+                    <Image
+                      src={post.linkMetadata.imageUrl}
+                      alt={post.linkMetadata.title || 'Album art'}
+                      width={56}
+                      height={56}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : null}
                   <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
 
                 {/* Track Info */}
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-[15px] truncate">
-                    {post.linkType === 'track' ? 'Track' : post.linkType === 'album' ? 'Album' : 'Playlist'}
+                    {post.linkMetadata?.title || (post.linkType === 'track' ? 'Track' : post.linkType === 'album' ? 'Album' : 'Playlist')}
                   </p>
                   <p className="text-sm text-muted-foreground truncate">
-                    {new URL(post.linkUrl).hostname}
+                    {post.linkMetadata?.artist || post.linkMetadata?.platform || (() => {
+                      try {
+                        return new URL(post.linkUrl!).hostname
+                      } catch {
+                        return 'Music Link'
+                      }
+                    })()}
                   </p>
                 </div>
 
@@ -148,7 +150,7 @@ export function PostCard({ post }: PostCardProps) {
               {post.tags.map((tag) => (
                 <Link
                   key={tag}
-                  href={`/search?q=${encodeURIComponent(tag)}`}
+                  href={`/discover?q=${encodeURIComponent(tag)}`}
                   className={`text-xs ${tag === 'newandupcoming' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                   #{tag}

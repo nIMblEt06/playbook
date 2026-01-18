@@ -7,6 +7,7 @@ export const createPostSchema = z.object({
     .max(2000, 'Content must be at most 2000 characters'),
   linkUrl: z.string().url().optional().nullable(),
   linkType: z.enum(['track', 'album', 'playlist']).optional().nullable(),
+  postType: z.enum(['discussion', 'music']).optional(), // Auto-detected if not provided
   tags: z.array(z.string().max(50)).max(10).default([]),
   communityIds: z.array(z.string()).max(5).default([]),
   isNewAndUpcoming: z.boolean().optional().default(false),

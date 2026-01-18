@@ -90,7 +90,7 @@ export default function PlaylistPage() {
               <div className="flex items-center gap-4 text-sm">
                 {playlist.owner && (
                   <Link
-                    href={`/u/${playlist.owner.username}`}
+                    href={`/profile/${playlist.owner.username}`}
                     className="flex items-center gap-2 hover:text-primary transition-colors"
                   >
                     {playlist.owner.avatarUrl ? (
@@ -144,7 +144,7 @@ export default function PlaylistPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-2 text-muted-foreground hover:text-primary transition-colors"
-                    title="Open in MusicBrainz"
+                    title="Open in Spotify"
                   >
                     <ExternalLink className="w-5 h-5" />
                   </a>

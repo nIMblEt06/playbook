@@ -11,12 +11,12 @@ interface CommunityParams {
 
 export async function communityRoutes(fastify: FastifyInstance) {
   // GET /api/communities
-  fastify.get<{ Querystring: { page?: string; limit?: string; type?: 'artist' | 'user' } }>(
+  fastify.get<{ Querystring: { page?: string; limit?: string } }>(
     '/',
     async (request, reply) => {
       try {
         const pagination = paginationSchema.parse(request.query);
-        const result = await communityService.listCommunities(pagination, request.query.type);
+        const result = await communityService.listCommunities(pagination);
         return reply.send(result);
       } catch (error) {
         if (error instanceof Error) {

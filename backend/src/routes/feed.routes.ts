@@ -79,4 +79,23 @@ export async function feedRoutes(fastify: FastifyInstance) {
       }
     }
   );
+
+  // GET /api/feed/activity - Activity feed (reviews/ratings from followed users)
+  fastify.get<{ Querystring: { page?: string; limit?: string } }>(
+    '/activity',
+    { preHandler: [fastify.authenticate] },
+    async (request, reply) => {
+      try {
+        const page = request.query.page ? parseInt(request.query.page, 10) : 1;
+        const limit = request.query.limit ? Math.min(parseInt(request.query.limit, 10), 50) : 20;
+        const result = await feedService.getActivityFeed(request.user.userId, { page, limit });
+        return reply.send(result);
+      } catch (error) {
+        if (error instanceof Error) {
+          return reply.code(400).send({ error: error.message });
+        }
+        throw error;
+      }
+    }
+  );
 }

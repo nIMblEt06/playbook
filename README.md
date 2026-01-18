@@ -1,8 +1,8 @@
-# Play Book
+# Trackd
 
 A music-focused social platform where you discover music through people you trust, not algorithms.
 
-## What is Play Book?
+## What is Trackd?
 
 - **For Music Discoverers:** Find new music through curated recommendations from people with similar taste
 - **For Emerging Artists:** Get meaningful feedback from genuinely interested listeners
@@ -59,7 +59,7 @@ A music-focused social platform where you discover music through people you trus
 ## Project Structure
 
 ```
-play_book/
+trackd/
 ├── backend/          # Fastify API server
 ├── frontend/         # Next.js app
 ```

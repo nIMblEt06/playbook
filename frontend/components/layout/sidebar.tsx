@@ -1,13 +1,13 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { Home, Search, Compass, Library, Plus } from 'lucide-react'
+import { Home, Search, Library, Plus, Activity } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/auth-store'
 import { useQuery } from '@tanstack/react-query'
 import { communitiesService } from '@/lib/api/services/communities'
 import { usersService } from '@/lib/api/services/users'
-import Image from 'next/image'
 
 export function Sidebar() {
   const pathname = usePathname()
@@ -27,22 +27,23 @@ export function Sidebar() {
 
   const navItems = [
     { label: 'Home', href: '/', icon: Home },
-    { label: 'Search', href: '/search', icon: Search },
-    { label: 'Discover', href: '/discover', icon: Compass },
+    { label: 'Activity', href: '/activity', icon: Activity },
+    { label: 'Discover', href: '/discover', icon: Search },
     { label: 'Library', href: '/library', icon: Library },
   ]
 
   return (
     <aside className="w-60 flex-shrink-0 p-4 sticky top-0 h-screen overflow-y-auto border-r-2 border-border">
       {/* Logo */}
-      <Link href="/" className="flex items-center gap-1 px-3 mb-8 text-primary hover:text-primary/80 transition-colors">
+      <Link href="/" className="flex items-center gap-2 px-3 mb-8 hover:opacity-80 transition-opacity">
         <Image
-          src="/pb_logo.svg"
-          alt="Play Book"
-          width={48}
-          height={24}
+          src="/trackd_logo.svg"
+          alt="Trackd"
+          width={32}
+          height={32}
+          className="w-8 h-8"
         />
-        <span className="text-lg font-display font-bold uppercase tracking-tight">laybook</span>
+        <span className="text-xl font-display font-bold uppercase tracking-tight text-[#36f1a4]">Trackd</span>
       </Link>
 
       {/* Main Navigation */}
@@ -77,14 +78,13 @@ export function Sidebar() {
             {communities?.items?.slice(0, 5).map((community) => (
               <Link
                 key={community.id}
-                href={`/${community.type === 'artist' ? 'a' : 'c'}/${community.slug}`}
+                href={`/community/${community.slug}`}
                 className="flex items-center gap-3 px-3 py-2 mb-1 text-sm text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
               >
                 <div className="w-5 h-5 bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-[10px] font-bold text-primary-foreground border border-border">
                   {community.name[0]}
                 </div>
-                {community.type === 'artist' ? 'a/' : 'c/'}
-                {community.slug}
+                {community.name}
               </Link>
             ))}
             <Link
@@ -104,7 +104,7 @@ export function Sidebar() {
             {following?.slice(0, 5).map((followedUser) => (
               <Link
                 key={followedUser.id}
-                href={`/u/${followedUser.username}`}
+                href={`/profile/${followedUser.username}`}
                 className="flex items-center gap-3 px-3 py-2 mb-1 text-sm text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
               >
                 {followedUser.avatarUrl ? (

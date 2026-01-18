@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 const searchQuerySchema = z.object({
   q: z.string().min(1, 'Query is required'),
-  type: z.enum(['users', 'communities', 'posts']).default('users'),
+  type: z.enum(['all', 'users', 'communities', 'posts']).default('all'),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });

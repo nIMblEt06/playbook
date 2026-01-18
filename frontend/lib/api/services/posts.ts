@@ -38,6 +38,11 @@ export const postsService = {
     await apiClient.delete(`/api/posts/${id}/save`)
   },
 
+  async getSavedPosts(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Post>> {
+    const response = await apiClient.get<BackendPaginatedResponse<Post>>('/api/posts/saved', { params })
+    return transformPaginatedResponse(response.data)
+  },
+
   async getComments(postId: string): Promise<Comment[]> {
     const response = await apiClient.get<Comment[]>(`/api/posts/${postId}/comments`)
     return response.data

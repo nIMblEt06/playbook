@@ -5,8 +5,9 @@ import { useQuery } from '@tanstack/react-query'
 import { usersService } from '@/lib/api/services/users'
 import { AppLayout } from '@/components/layout/app-layout'
 import { PostCard } from '@/components/posts/post-card'
+import { ActivityCard } from '@/components/activity/activity-card'
 import { useAuthStore } from '@/lib/store/auth-store'
-import { Music2, MapPin, Link as LinkIcon, Loader2, Settings } from 'lucide-react'
+import { Music2, Loader2, Settings, FileText, Activity } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useState } from 'react'
@@ -17,6 +18,7 @@ export default function ProfilePage() {
   const username = params.username as string
   const { user: currentUser } = useAuthStore()
   const [isFollowing, setIsFollowing] = useState(false)
+  const [activeTab, setActiveTab] = useState<'posts' | 'activity'>('posts')
 
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['user', username],
@@ -26,6 +28,13 @@ export default function ProfilePage() {
   const { data: postsData, isLoading: postsLoading } = useQuery({
     queryKey: ['posts', 'user', username],
     queryFn: () => usersService.getUserPosts(username),
+    enabled: activeTab === 'posts',
+  })
+
+  const { data: reviewsData, isLoading: reviewsLoading } = useQuery({
+    queryKey: ['reviews', 'user', username],
+    queryFn: () => usersService.getUserReviews(username),
+    enabled: activeTab === 'activity',
   })
 
   const isOwnProfile = currentUser?.username === username
@@ -93,7 +102,7 @@ export default function ProfilePage() {
                     <p className="text-muted-foreground">@{profile.username}</p>
                   </div>
                   {isOwnProfile ? (
-                    <Link href="/settings" className="btn-ghost">
+                    <Link href="/settings" className="btn-ghost flex items-center whitespace-nowrap">
                       <Settings className="w-4 h-4 mr-2" />
                       Edit Profile
                     </Link>
@@ -188,23 +197,75 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Posts */}
+        {/* Tabs */}
+        <div className="border-b border-border">
+          <div className="max-w-3xl mx-auto px-6">
+            <div className="flex gap-6">
+              <button
+                onClick={() => setActiveTab('posts')}
+                className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'posts'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+                Posts
+              </button>
+              <button
+                onClick={() => setActiveTab('activity')}
+                className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'activity'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Activity className="w-4 h-4" />
+                Activity
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Tab Content */}
         <div className="max-w-3xl mx-auto">
-          {postsLoading && (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+          {activeTab === 'posts' ? (
+            <>
+              {postsLoading && (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                </div>
+              )}
+
+              {!postsLoading && postsData?.items.length === 0 && (
+                <div className="px-6 py-12 text-center text-muted-foreground">
+                  No posts yet
+                </div>
+              )}
+
+              {postsData?.items.map((post) => (
+                <PostCard key={post.id} post={post} />
+              ))}
+            </>
+          ) : (
+            <div className="px-6 py-6 space-y-4">
+              {reviewsLoading && (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                </div>
+              )}
+
+              {!reviewsLoading && reviewsData?.items.length === 0 && (
+                <div className="py-12 text-center text-muted-foreground">
+                  No activity yet
+                </div>
+              )}
+
+              {reviewsData?.items.map((activity) => (
+                <ActivityCard key={activity.id} activity={activity} />
+              ))}
             </div>
           )}
-
-          {!postsLoading && postsData?.items.length === 0 && (
-            <div className="px-6 py-12 text-center text-muted-foreground">
-              No posts yet
-            </div>
-          )}
-
-          {postsData?.items.map((post) => (
-            <PostCard key={post.id} post={post} />
-          ))}
         </div>
       </div>
     </AppLayout>

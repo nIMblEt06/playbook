@@ -3,7 +3,7 @@
  * Uses IndexedDB for persistent storage and in-memory cache for quick access
  */
 
-const CACHE_NAME = 'playbook-image-cache'
+const CACHE_NAME = 'trackd-image-cache'
 const CACHE_VERSION = 1
 const MAX_CACHE_SIZE = 50 * 1024 * 1024 // 50MB
 const CACHE_EXPIRY_DAYS = 7

@@ -4,7 +4,7 @@ import type { PaginationInput } from '../schemas/user.schema.js';
 
 export class CommunityService {
   async createCommunity(creatorId: string, input: CreateCommunityInput) {
-    const { slug, name, description, rules, coverImageUrl, type } = input;
+    const { slug, name, description, rules, coverImageUrl } = input;
 
     // Check if slug is taken
     const existing = await prisma.community.findUnique({
@@ -24,7 +24,6 @@ export class CommunityService {
           description,
           rules,
           coverImageUrl,
-          type,
           creatorId,
           memberCount: 1,
         },
@@ -231,15 +230,12 @@ export class CommunityService {
     };
   }
 
-  async listCommunities(pagination: PaginationInput, type?: 'artist' | 'user') {
+  async listCommunities(pagination: PaginationInput) {
     const { page, limit } = pagination;
     const skip = (page - 1) * limit;
 
-    const where = type ? { type } : {};
-
     const [communities, total] = await Promise.all([
       prisma.community.findMany({
-        where,
         skip,
         take: limit,
         orderBy: { memberCount: 'desc' },
@@ -252,7 +248,7 @@ export class CommunityService {
           },
         },
       }),
-      prisma.community.count({ where }),
+      prisma.community.count(),
     ]);
 
     return {

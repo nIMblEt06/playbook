@@ -38,7 +38,7 @@ function CommentItem({ comment }: { comment: Comment }) {
   return (
     <div className="border-l-2 border-border pl-4 ml-6">
       <div className="flex gap-3 mb-3">
-        <Link href={`/u/${comment.author.username}`}>
+        <Link href={`/profile/${comment.author.username}`}>
           {comment.author.avatarUrl ? (
             <Image
               src={comment.author.avatarUrl}
@@ -54,7 +54,7 @@ function CommentItem({ comment }: { comment: Comment }) {
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
             <Link
-              href={`/u/${comment.author.username}`}
+              href={`/profile/${comment.author.username}`}
               className="font-medium text-sm hover:underline"
             >
               {comment.author.displayName}

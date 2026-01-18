@@ -1,4 +1,6 @@
 // User types
+export type AvatarType = 'custom' | 'pixel'
+
 export interface User {
   id: string
   username: string
@@ -6,8 +8,13 @@ export interface User {
   email: string
   bio: string | null
   avatarUrl: string | null
+  avatarType: AvatarType
+  pixelAvatarId: number | null
   isArtist: boolean
   artistName: string | null
+  spotifyId: string
+  spotifyPremium: boolean
+  spotifyTokenExpiry: string
   streamingLinks: {
     spotify?: string
     appleMusic?: string
@@ -27,12 +34,22 @@ export interface User {
 // Post types
 export type LinkType = 'track' | 'album' | 'playlist'
 
+export interface LinkMetadata {
+  title?: string
+  artist?: string
+  albumName?: string
+  imageUrl?: string
+  platform?: string
+  embedUrl?: string
+}
+
 export interface Post {
   id: string
   authorId: string
   content: string
   linkUrl: string | null
   linkType: LinkType | null
+  linkMetadata?: LinkMetadata | null
   tags: string[]
   upvoteCount: number
   commentCount: number
@@ -46,12 +63,9 @@ export interface Post {
 }
 
 // Community types
-export type CommunityType = 'artist' | 'user'
-
 export interface Community {
   id: string
   slug: string
-  type: CommunityType
   name: string
   description: string | null
   rules: string | null
@@ -167,12 +181,13 @@ export interface UpdateProfileRequest {
   displayName?: string
   bio?: string
   avatarUrl?: string
+  avatarType?: AvatarType
+  pixelAvatarId?: number | null
   streamingLinks?: User['streamingLinks']
 }
 
 export interface CreateCommunityRequest {
   slug: string
-  type: CommunityType
   name: string
   description?: string
   rules?: string
@@ -185,4 +200,56 @@ export interface PaginatedResponse<T> {
   page: number
   pageSize: number
   hasMore: boolean
+}
+
+// Activity types (reviews/ratings from followed users)
+export type ReviewTargetType = 'album' | 'track' | 'artist'
+
+export interface ActivityAlbum {
+  id: string
+  spotifyId: string
+  title: string
+  artistName: string
+  coverImageUrl: string | null
+}
+
+export interface ActivityTrack {
+  id: string
+  spotifyId: string
+  title: string
+  artistName: string
+}
+
+export interface ActivityArtist {
+  id: string
+  spotifyId: string
+  name: string
+  imageUrl: string | null
+}
+
+export interface ActivityItem {
+  id: string
+  authorId: string
+  targetType: ReviewTargetType
+  albumId: string | null
+  trackId: string | null
+  artistId: string | null
+  rating: number | null
+  title: string | null
+  content: string | null
+  upvoteCount: number
+  commentCount: number
+  createdAt: string
+  updatedAt: string
+  author: {
+    id: string
+    username: string
+    displayName: string
+    avatarUrl: string | null
+    isArtist: boolean
+  }
+  album: ActivityAlbum | null
+  track: ActivityTrack | null
+  artist: ActivityArtist | null
+  hasUpvoted?: boolean
 }

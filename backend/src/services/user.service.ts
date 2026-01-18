@@ -257,6 +257,17 @@ export class UserService {
               isArtist: true,
             },
           },
+          communities: {
+            include: {
+              community: {
+                select: {
+                  id: true,
+                  slug: true,
+                  name: true,
+                },
+              },
+            },
+          },
           _count: {
             select: {
               comments: true,
@@ -270,8 +281,86 @@ export class UserService {
       }),
     ]);
 
+    // Transform posts to flatten communities
+    const transformedPosts = posts.map((post) => ({
+      ...post,
+      communities: post.communities.map((pc) => pc.community),
+    }));
+
     return {
-      data: posts,
+      data: transformedPosts,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getUserReviews(username: string, pagination: PaginationInput) {
+    const { page, limit } = pagination;
+    const skip = (page - 1) * limit;
+
+    const user = await prisma.user.findUnique({
+      where: { username: username.toLowerCase() },
+      select: { id: true },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const [reviews, total] = await Promise.all([
+      prisma.review.findMany({
+        where: { authorId: user.id },
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          author: {
+            select: {
+              id: true,
+              username: true,
+              displayName: true,
+              avatarUrl: true,
+              isArtist: true,
+            },
+          },
+          album: {
+            select: {
+              id: true,
+              spotifyId: true,
+              title: true,
+              artistName: true,
+              coverImageUrl: true,
+            },
+          },
+          track: {
+            select: {
+              id: true,
+              spotifyId: true,
+              title: true,
+              artistName: true,
+            },
+          },
+          artist: {
+            select: {
+              id: true,
+              spotifyId: true,
+              name: true,
+              imageUrl: true,
+            },
+          },
+        },
+      }),
+      prisma.review.count({
+        where: { authorId: user.id },
+      }),
+    ]);
+
+    return {
+      data: reviews,
       pagination: {
         page,
         limit,

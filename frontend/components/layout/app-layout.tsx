@@ -4,6 +4,7 @@ import { Header } from './header'
 import { Sidebar } from './sidebar'
 import { RightSidebar } from './right-sidebar'
 import { usePathname } from 'next/navigation'
+import { usePlayerStore } from '@/lib/store/player-store'
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -12,6 +13,7 @@ interface AppLayoutProps {
 
 export function AppLayout({ children, showRightSidebar = true }: AppLayoutProps) {
   const pathname = usePathname()
+  const currentTrack = usePlayerStore((state) => state.currentTrack)
 
   // Don't show layout for auth pages
   const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/register')
@@ -26,7 +28,7 @@ export function AppLayout({ children, showRightSidebar = true }: AppLayoutProps)
 
       <main className="flex-1 min-w-0 flex flex-col">
         <Header />
-        <div className="flex-1">{children}</div>
+        <div className={`flex-1 ${currentTrack ? 'pb-24' : ''}`}>{children}</div>
       </main>
 
       {showRightSidebar && <RightSidebar />}

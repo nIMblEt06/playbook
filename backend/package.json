@@ -1,7 +1,7 @@
 {
-  "name": "play-book-backend",
+  "name": "trackd-backend",
   "version": "1.0.0",
-  "description": "Backend API for Play Book - music-focused social platform",
+  "description": "Backend API for Trackd - music-focused social platform",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
@@ -10,11 +10,15 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
+    "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "keywords": [
     "music",

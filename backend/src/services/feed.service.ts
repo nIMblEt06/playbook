@@ -92,7 +92,6 @@ export class FeedService {
                   id: true,
                   slug: true,
                   name: true,
-                  type: true,
                 },
               },
             },
@@ -231,6 +230,115 @@ export class FeedService {
 
     return {
       data: posts,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Activity Feed - Reviews and ratings from followed users
+   * Shows chronological activity (reviews/ratings) from people the user follows
+   */
+  async getActivityFeed(userId: string, query: { page: number; limit: number }) {
+    const { page, limit } = query;
+    const skip = (page - 1) * limit;
+
+    // Get following IDs
+    const following = await prisma.follow.findMany({
+      where: { followerId: userId },
+      select: { followingId: true },
+    });
+    const followingIds = following.map((f) => f.followingId);
+
+    // If user follows nobody, return empty feed
+    if (followingIds.length === 0) {
+      return {
+        data: [],
+        pagination: {
+          page,
+          limit,
+          total: 0,
+          totalPages: 0,
+        },
+      };
+    }
+
+    // Fetch reviews from followed users
+    const [reviews, total] = await Promise.all([
+      prisma.review.findMany({
+        where: {
+          authorId: { in: followingIds },
+        },
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          author: {
+            select: {
+              id: true,
+              username: true,
+              displayName: true,
+              avatarUrl: true,
+              isArtist: true,
+            },
+          },
+          album: {
+            select: {
+              id: true,
+              spotifyId: true,
+              title: true,
+              artistName: true,
+              coverImageUrl: true,
+            },
+          },
+          track: {
+            select: {
+              id: true,
+              spotifyId: true,
+              title: true,
+              artistName: true,
+            },
+          },
+          artist: {
+            select: {
+              id: true,
+              spotifyId: true,
+              name: true,
+              imageUrl: true,
+            },
+          },
+        },
+      }),
+      prisma.review.count({
+        where: {
+          authorId: { in: followingIds },
+        },
+      }),
+    ]);
+
+    // Get upvote status for current user
+    const reviewIds = reviews.map((r) => r.id);
+    const userUpvotes = await prisma.upvote.findMany({
+      where: {
+        userId,
+        targetType: 'review',
+        targetId: { in: reviewIds },
+      },
+      select: { targetId: true },
+    });
+    const upvotedReviewIds = new Set(userUpvotes.map((u) => u.targetId));
+
+    const reviewsWithStatus = reviews.map((review) => ({
+      ...review,
+      hasUpvoted: upvotedReviewIds.has(review.id),
+    }));
+
+    return {
+      data: reviewsWithStatus,
       pagination: {
         page,
         limit,

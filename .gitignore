@@ -2,6 +2,7 @@
 CLAUDE.md
 .superdesign/
 .cursor/
+.serena/
 
 # Dependencies
 node_modules/

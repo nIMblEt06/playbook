@@ -11,13 +11,38 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'placehold.co',
       },
+      {
+        protocol: 'https',
+        hostname: 'coverartarchive.org',
+      },
+      {
+        protocol: 'http',
+        hostname: 'coverartarchive.org',
+      },
+      // Spotify image CDN
+      {
+        protocol: 'https',
+        hostname: 'i.scdn.co',
+      },
+      {
+        protocol: 'https',
+        hostname: 'mosaic.scdn.co',
+      },
+      {
+        protocol: 'https',
+        hostname: 'image-cdn-ak.spotifycdn.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'image-cdn-fa.spotifycdn.com',
+      },
     ],
   },
   async rewrites() {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:3001/api/:path*', // Backend API URL
+        destination: 'http://127.0.0.1:3001/api/:path*', // Backend API URL
       },
     ];
   },

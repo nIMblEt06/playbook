@@ -165,4 +165,24 @@ export async function userRoutes(fastify: FastifyInstance) {
       }
     }
   );
+
+  // GET /api/users/:username/reviews - Get user's reviews/activity
+  fastify.get<{ Params: UserParams; Querystring: { page?: string; limit?: string } }>(
+    '/:username/reviews',
+    async (request, reply) => {
+      try {
+        const pagination = paginationSchema.parse(request.query);
+        const result = await userService.getUserReviews(request.params.username, pagination);
+        return reply.send(result);
+      } catch (error) {
+        if (error instanceof Error) {
+          if (error.message === 'User not found') {
+            return reply.code(404).send({ error: error.message });
+          }
+          return reply.code(400).send({ error: error.message });
+        }
+        throw error;
+      }
+    }
+  );
 }

@@ -1,4 +1,4 @@
-// Play Book - Database Schema
+// Trackd - Database Schema
 // Based on PRD v1.0 Data Models
 
 generator client {
@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ============================================
@@ -18,11 +19,21 @@ model User {
   username     String   @unique // lowercase, unique
   displayName  String
   email        String   @unique
-  passwordHash String
   bio          String?
   avatarUrl    String?
   isArtist     Boolean  @default(false)
   artistName   String?
+
+  // Spotify OAuth (required for all users - Spotify-only auth)
+  spotifyId           String    @unique
+  spotifyAccessToken  String    // Encrypted access token
+  spotifyRefreshToken String    // Encrypted refresh token
+  spotifyTokenExpiry  DateTime  // When access token expires
+  spotifyPremium      Boolean   @default(false) // For Web Playback SDK
+
+  // Avatar selection
+  avatarType    AvatarType @default(custom)
+  pixelAvatarId Int?       // 1-5 for predefined pixel avatars
 
   // Streaming profile links (JSON object)
   streamingLinks Json @default("{}")
@@ -48,23 +59,39 @@ model User {
   // Saved posts
   savedPosts SavedPost[]
 
+  // New relations for music logging platform
+  reviews          Review[]
+  reviewComments   ReviewComment[]
+  ratings          Rating[]
+  playlistPreviews PlaylistPreview[]
+  albumTagsAdded   AlbumTag[]        @relation("AlbumTagAdder")
+
   @@index([username])
   @@index([email])
+}
+
+enum AvatarType {
+  custom // User-uploaded
+  pixel  // Predefined pixel art
 }
 
 // ============================================
 // Post Model (PRD Section 8.2)
 // ============================================
 model Post {
-  id             String    @id @default(cuid())
-  authorId       String
-  content        String    @db.VarChar(2000) // max 2000 chars
-  linkUrl        String?
-  linkType       LinkType?
-  tags           String[]  // community tags, genre tags
-  upvoteCount    Int       @default(0)
-  commentCount   Int       @default(0)
-  isNewAndUpcoming Boolean @default(false) // #NewAndUpcoming tag
+  id               String    @id @default(cuid())
+  authorId         String
+  content          String    @db.VarChar(2000) // max 2000 chars
+  linkUrl          String?
+  linkType         LinkType?
+  tags             String[]  // community tags, genre tags
+  upvoteCount      Int       @default(0)
+  commentCount     Int       @default(0)
+  isNewAndUpcoming Boolean   @default(false) // #NewAndUpcoming tag
+  postType         PostType  @default(discussion) // discussion or music
+
+  // Cached link metadata (title, artist, coverArt from URL parsing)
+  linkMetadata Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -78,6 +105,9 @@ model Post {
   // Community tags (many-to-many)
   communities PostCommunity[]
 
+  // Structured tags (many-to-many with Tag model)
+  postTags PostTag[]
+
   @@index([authorId])
   @@index([createdAt])
   @@index([isNewAndUpcoming])
@@ -89,19 +119,23 @@ enum LinkType {
   playlist
 }
 
+enum PostType {
+  discussion
+  music
+}
+
 // ============================================
 // Community Model (PRD Section 8.3)
 // ============================================
 model Community {
-  id            String        @id @default(cuid())
-  slug          String        @unique // unique identifier
-  type          CommunityType
+  id            String @id @default(cuid())
+  slug          String @unique // unique identifier
   name          String
   description   String?
   rules         String?
   coverImageUrl String?
   creatorId     String
-  memberCount   Int           @default(0)
+  memberCount   Int    @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -113,12 +147,6 @@ model Community {
   reputations Reputation[]
 
   @@index([slug])
-  @@index([type])
-}
-
-enum CommunityType {
-  artist // a/ communities
-  user   // u/ communities
 }
 
 // ============================================
@@ -131,6 +159,7 @@ model Comment {
   parentCommentId String? // for threading
   content         String  @db.VarChar(1000) // max 1000 chars
   upvoteCount     Int     @default(0)
+  depth           Int     @default(0) // Nesting level for threaded display
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -270,9 +299,11 @@ model Upvote {
   createdAt DateTime @default(now())
 
   // Relations
-  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  post    Post?    @relation("PostUpvotes", fields: [targetId], references: [id], map: "upvote_post_fk")
-  comment Comment? @relation("CommentUpvotes", fields: [targetId], references: [id], map: "upvote_comment_fk")
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post          Post?          @relation("PostUpvotes", fields: [targetId], references: [id], map: "upvote_post_fk")
+  comment       Comment?       @relation("CommentUpvotes", fields: [targetId], references: [id], map: "upvote_comment_fk")
+  review        Review?        @relation("ReviewUpvotes", fields: [targetId], references: [id], map: "upvote_review_fk")
+  reviewComment ReviewComment? @relation("ReviewCommentUpvotes", fields: [targetId], references: [id], map: "upvote_review_comment_fk")
 
   @@unique([userId, targetType, targetId])
   @@index([userId])
@@ -282,6 +313,8 @@ model Upvote {
 enum TargetType {
   post
   comment
+  review
+  review_comment
 }
 
 // ============================================
@@ -313,6 +346,9 @@ enum NotificationType {
   comment
   reply
   mention
+  upvote_review
+  review_comment
+  review_reply
 }
 
 // ============================================
@@ -348,4 +384,309 @@ model SavedPost {
 
   @@unique([userId, postId])
   @@index([userId])
+}
+
+// ============================================
+// Artist Model - Lazily created from Spotify
+// ============================================
+model Artist {
+  id        String   @id @default(cuid())
+  spotifyId String?  @unique // Nullable for manual entries
+  name      String
+  sortName  String?
+  imageUrl  String?
+  country   String?
+  type      String?  // Person, Group, Orchestra, etc.
+  genres    String[] // Spotify provides genres
+  popularity Int?    // 0-100 Spotify popularity score
+  spotifyUri String? // spotify:artist:xxx
+  spotifyUrl String? // https://open.spotify.com/artist/xxx
+  metadata  Json     @default("{}")
+
+  // Aggregated stats
+  reviewCount Int @default(0)
+  ratingSum   Int @default(0)
+  ratingCount Int @default(0)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  lastFetchedAt DateTime @default(now())
+
+  // Relations
+  albums  Album[]
+  reviews Review[] @relation("ArtistReviews")
+
+  @@index([name])
+  @@index([spotifyId])
+}
+
+// ============================================
+// Album Model - Lazily created from Spotify
+// ============================================
+model Album {
+  id            String    @id @default(cuid())
+  spotifyId     String?   @unique // Nullable for manual entries
+  title         String
+  artistName    String
+  artistId      String?
+  releaseDate   DateTime?
+  releaseYear   Int?
+  coverImageUrl String?
+  trackCount    Int?
+  albumType     String    @default("album") // album, single, ep, compilation, etc.
+  spotifyUri    String?   // spotify:album:xxx
+  spotifyUrl    String?   // https://open.spotify.com/album/xxx
+  popularity    Int?      // 0-100 Spotify popularity score
+  metadata      Json      @default("{}")
+
+  // Aggregated stats
+  reviewCount Int @default(0)
+  ratingSum   Int @default(0)
+  ratingCount Int @default(0)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  lastFetchedAt DateTime @default(now())
+
+  // Relations
+  artist  Artist?    @relation(fields: [artistId], references: [id])
+  reviews Review[]   @relation("AlbumReviews")
+  ratings Rating[]   @relation("AlbumRatings")
+  tracks  Track[]
+  tags    AlbumTag[]
+
+  @@index([title])
+  @@index([artistId])
+  @@index([spotifyId])
+  @@index([releaseYear])
+}
+
+// ============================================
+// Track Model - For album tracklists
+// ============================================
+model Track {
+  id          String  @id @default(cuid())
+  spotifyId   String? @unique // Nullable for manual entries
+  title       String
+  albumId     String?
+  artistName  String
+  trackNumber Int?
+  discNumber  Int?    @default(1)
+  durationMs  Int?
+  previewUrl  String? // 30-sec preview URL from Spotify
+  explicit    Boolean @default(false)
+  isrc        String? // International Standard Recording Code
+  spotifyUri  String? // spotify:track:xxx
+  spotifyUrl  String? // https://open.spotify.com/track/xxx
+  popularity  Int?    // 0-100 Spotify popularity score
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  album   Album?   @relation(fields: [albumId], references: [id], onDelete: SetNull)
+  reviews Review[] @relation("TrackReviews")
+  ratings Rating[] @relation("TrackRatings")
+
+  @@index([albumId])
+  @@index([spotifyId])
+}
+
+// ============================================
+// Review Model - Full reviews with optional rating
+// ============================================
+model Review {
+  id         String           @id @default(cuid())
+  authorId   String
+  targetType ReviewTargetType
+  albumId    String?
+  trackId    String?
+  artistId   String?
+
+  rating  Int?    // 1-5 stars (optional - can just rate without text)
+  title   String? @db.VarChar(200)
+  content String? @db.VarChar(5000) // optional - can rate without review
+
+  upvoteCount  Int @default(0)
+  commentCount Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  author   User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  album    Album?          @relation("AlbumReviews", fields: [albumId], references: [id], onDelete: Cascade)
+  track    Track?          @relation("TrackReviews", fields: [trackId], references: [id], onDelete: Cascade)
+  artist   Artist?         @relation("ArtistReviews", fields: [artistId], references: [id], onDelete: Cascade)
+  comments ReviewComment[]
+  upvotes  Upvote[]        @relation("ReviewUpvotes")
+
+  @@unique([authorId, albumId])
+  @@unique([authorId, trackId])
+  @@unique([authorId, artistId])
+  @@index([authorId])
+  @@index([albumId])
+  @@index([trackId])
+  @@index([artistId])
+  @@index([createdAt])
+  @@index([upvoteCount])
+}
+
+enum ReviewTargetType {
+  album
+  track
+  artist
+}
+
+// ============================================
+// ReviewComment Model - Threaded comments on reviews
+// ============================================
+model ReviewComment {
+  id          String @id @default(cuid())
+  reviewId    String
+  authorId    String
+  parentId    String? // For threading
+  content     String  @db.VarChar(2000)
+  upvoteCount Int     @default(0)
+  depth       Int     @default(0) // Nesting level for display
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  review  Review          @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  author  User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent  ReviewComment?  @relation("ReviewCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies ReviewComment[] @relation("ReviewCommentReplies")
+  upvotes Upvote[]        @relation("ReviewCommentUpvotes")
+
+  @@index([reviewId])
+  @@index([authorId])
+  @@index([parentId])
+  @@index([createdAt])
+}
+
+// ============================================
+// Rating Model - Quick 5-star ratings without review
+// ============================================
+model Rating {
+  id      String  @id @default(cuid())
+  userId  String
+  value   Int // 1-5 stars
+  albumId String?
+  trackId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  album Album? @relation("AlbumRatings", fields: [albumId], references: [id], onDelete: Cascade)
+  track Track? @relation("TrackRatings", fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, albumId])
+  @@unique([userId, trackId])
+  @@index([userId])
+  @@index([albumId])
+  @@index([trackId])
+  @@index([value])
+}
+
+// ============================================
+// Tag Model - Predefined genres + user-generated
+// ============================================
+model Tag {
+  id         String      @id @default(cuid())
+  name       String      @unique
+  slug       String      @unique // URL-safe version
+  category   TagCategory @default(genre)
+  isOfficial Boolean     @default(false) // Predefined vs user-generated
+  useCount   Int         @default(0)
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  albums AlbumTag[]
+  posts  PostTag[]
+
+  @@index([slug])
+  @@index([category])
+  @@index([useCount])
+}
+
+enum TagCategory {
+  genre     // Rock, Pop, Jazz
+  mood      // Chill, Energetic
+  era       // 80s, 90s
+  custom    // User-generated
+}
+
+// ============================================
+// AlbumTag Junction - Tags on albums
+// ============================================
+model AlbumTag {
+  id        String  @id @default(cuid())
+  albumId   String
+  tagId     String
+  addedById String?
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  album   Album @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  tag     Tag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  addedBy User? @relation("AlbumTagAdder", fields: [addedById], references: [id], onDelete: SetNull)
+
+  @@unique([albumId, tagId])
+  @@index([albumId])
+  @@index([tagId])
+}
+
+// ============================================
+// PostTag Junction - Tags on posts
+// ============================================
+model PostTag {
+  id     String @id @default(cuid())
+  postId String
+  tagId  String
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, tagId])
+  @@index([postId])
+  @@index([tagId])
+}
+
+// ============================================
+// PlaylistPreview - External playlist metadata (preview only)
+// ============================================
+model PlaylistPreview {
+  id            String         @id @default(cuid())
+  userId        String // User who shared this playlist
+  sourceType    PlaylistSource
+  sourceUrl     String // Original Spotify/Apple Music URL
+  sourceId      String // Playlist ID from source
+  name          String
+  description   String?
+  ownerName     String? // Original playlist creator
+  coverImageUrl String?
+  trackCount    Int            @default(0)
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceType, sourceId]) // Deduplicate by source
+  @@index([userId])
+}
+
+enum PlaylistSource {
+  spotify
+  apple_music
+  youtube_music
+  soundcloud
 }

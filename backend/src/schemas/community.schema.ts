@@ -14,7 +14,6 @@ export const createCommunitySchema = z.object({
   description: z.string().max(500).optional().nullable(),
   rules: z.string().max(2000).optional().nullable(),
   coverImageUrl: z.string().url().optional().nullable(),
-  type: z.enum(['artist', 'user']).default('user'),
 });
 
 export const updateCommunitySchema = z.object({
