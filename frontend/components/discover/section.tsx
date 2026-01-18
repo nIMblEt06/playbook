@@ -13,8 +13,8 @@ interface SectionProps {
 export function Section({ title, subtitle, href, children }: SectionProps) {
   return (
     <section className="mb-8">
-      <div className="flex items-center justify-between mb-4">
-        <div>
+      <div className="flex items-center justify-between gap-4 mb-4">
+        <div className="min-w-0 flex-1">
           <h2 className="text-lg font-semibold">{title}</h2>
           {subtitle && (
             <p className="text-sm text-muted-foreground">{subtitle}</p>
@@ -23,7 +23,7 @@ export function Section({ title, subtitle, href, children }: SectionProps) {
         {href && (
           <Link
             href={href}
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors"
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors whitespace-nowrap flex-shrink-0"
           >
             See all
             <ChevronRight className="w-4 h-4" />

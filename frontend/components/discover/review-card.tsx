@@ -3,10 +3,11 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Star, ThumbsUp, MessageCircle, Music, User } from 'lucide-react'
+import { Star, ThumbsUp, MessageCircle, Music, User, Share2 } from 'lucide-react'
 import type { DiscoverReview } from '@/lib/api/services/discover'
 import { formatDistanceToNow } from '@/lib/utils/format'
 import { useUpvoteReview } from '@/lib/hooks/use-reviews'
+import { ShareStoryModal } from './share-story-modal'
 
 interface ReviewCardProps {
   review: DiscoverReview
@@ -17,8 +18,15 @@ interface ReviewCardProps {
 export function ReviewCard({ review, compact = false, onCommentClick }: ReviewCardProps) {
   const [hasUpvoted, setHasUpvoted] = useState(review.hasUpvoted || false)
   const [upvoteCount, setUpvoteCount] = useState(review.upvoteCount)
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false)
 
   const upvoteMutation = useUpvoteReview()
+
+  const handleShareClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsShareModalOpen(true)
+  }
 
   const handleUpvote = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -198,11 +206,25 @@ export function ReviewCard({ review, compact = false, onCommentClick }: ReviewCa
               <span>{review.commentCount}</span>
             </Link>
           )}
+          <button
+            onClick={handleShareClick}
+            className="flex items-center gap-1 px-2 py-1 rounded hover:text-foreground hover:bg-muted transition-colors md:hidden"
+            aria-label="Share to story"
+          >
+            <Share2 className="w-3.5 h-3.5" />
+          </button>
           <span className="text-xs">
             {formatDistanceToNow(new Date(review.createdAt))}
           </span>
         </div>
       </div>
+
+      {/* Share Story Modal */}
+      <ShareStoryModal
+        review={review}
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+      />
     </div>
   )
 }
