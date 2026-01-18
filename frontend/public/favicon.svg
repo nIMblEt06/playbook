@@ -1,0 +1,13 @@
+<svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- Solid outer disc -->
+    <circle cx="100" cy="100" r="95" fill="#86EFAC"/>
+    <!-- Darker grooves for vinyl effect -->
+    <circle cx="100" cy="100" r="75" fill="none" stroke="#1a1a1a" stroke-width="2" stroke-opacity="0.3"/>
+    <circle cx="100" cy="100" r="55" fill="none" stroke="#1a1a1a" stroke-width="2" stroke-opacity="0.3"/>
+    <!-- Center label area -->
+    <circle cx="100" cy="100" r="30" fill="#1a1a1a"/>
+    <!-- Spindle hole -->
+    <circle cx="100" cy="100" r="10" fill="#86EFAC"/>
+    <!-- Needle/arm -->
+    <path d="M100 5 L100 40" stroke="#1a1a1a" stroke-width="4" stroke-linecap="round"/>
+</svg>

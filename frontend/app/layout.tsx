@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   title: 'Trackd - Discover Music Through People You Trust',
   description: 'A music-focused social platform for music enthusiasts to discover, discuss, and share music through trusted communities.',
   icons: {
-    icon: '/trackd_logo.svg',
+    icon: '/favicon.svg',
   },
 }
 

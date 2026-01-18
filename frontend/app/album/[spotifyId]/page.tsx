@@ -215,7 +215,6 @@ export default function AlbumPage() {
                 <PlayButton
                   tracks={getPlayerTracks()}
                   size="lg"
-                  className="gap-2 px-6"
                 />
               </div>
             )}

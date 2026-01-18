@@ -37,7 +37,7 @@ interface PlayButtonProps {
   startIndex?: number
 
   // Styling variants
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg' | 'xl'
   variant?: 'default' | 'overlay' | 'icon-only'
   className?: string
 }
@@ -45,13 +45,15 @@ interface PlayButtonProps {
 const sizeClasses = {
   sm: 'h-8 w-8',
   md: 'h-10 w-10',
-  lg: 'h-14 w-14',
+  lg: 'h-12 w-12',
+  xl: 'h-16 w-16',
 }
 
 const iconSizes = {
   sm: 16,
   md: 20,
-  lg: 28,
+  lg: 24,
+  xl: 32,
 }
 
 const variantClasses = {

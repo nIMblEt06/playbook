@@ -25,7 +25,6 @@ export function SpotifyPlayerExample() {
     nextTrack,
     previousTrack,
     setVolume,
-    getCurrentState,
     error,
   } = useSpotifyPlayer()
 
@@ -104,10 +103,10 @@ export function SpotifyPlayerExample() {
       {currentTrack && (
         <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg">
           <div className="flex gap-4">
-            {currentTrack.albumArt && (
+            {currentTrack.coverUrl && (
               <img
-                src={currentTrack.albumArt}
-                alt={currentTrack.album}
+                src={currentTrack.coverUrl}
+                alt={currentTrack.albumName}
                 className="w-20 h-20 rounded object-cover"
               />
             )}
@@ -116,7 +115,7 @@ export function SpotifyPlayerExample() {
               <p className="text-gray-600 dark:text-gray-400 truncate">
                 {currentTrack.artists.join(', ')}
               </p>
-              <p className="text-sm text-gray-500 truncate">{currentTrack.album}</p>
+              <p className="text-sm text-gray-500 truncate">{currentTrack.albumName}</p>
             </div>
           </div>
         </div>

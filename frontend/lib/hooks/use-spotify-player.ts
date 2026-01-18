@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useCallback, useState } from 'react'
+import { useEffect, useCallback, useSyncExternalStore } from 'react'
 import { useAuthStore } from '../store/auth-store'
 import { usePlayerStore, type PlayerTrack } from '../store/player-store'
 import { apiClient } from '../api/client'
@@ -103,857 +103,897 @@ export interface UseSpotifyPlayerReturn {
 const SDK_SCRIPT_ID = 'spotify-player-sdk'
 const SDK_URL = 'https://sdk.scdn.co/spotify-player.js'
 
-export function useSpotifyPlayer(): UseSpotifyPlayerReturn {
-  const user = useAuthStore((state) => state.user)
-  const [error, setError] = useState<string | null>(null)
-  const [isReady, setIsReady] = useState(false)
+// =============================================================================
+// SINGLETON STATE - Shared across all hook instances
+// =============================================================================
 
-  // Refs
-  const playerRef = useRef<SpotifyPlayer | null>(null)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
-  const premiumPositionIntervalRef = useRef<NodeJS.Timeout | null>(null)
-  const initializedRef = useRef(false)
-  const deviceTransferredRef = useRef(false)
+interface SingletonState {
+  player: SpotifyPlayer | null
+  audio: HTMLAudioElement | null
+  isReady: boolean
+  error: string | null
+  initialized: boolean
+  initializing: boolean
+  deviceTransferred: boolean
+  positionInterval: NodeJS.Timeout | null
+  currentUserId: string | null
+  currentIsPremium: boolean | null
+}
 
-  // Guards against duplicate operations
-  const initializingRef = useRef(false)
-  const playInProgressRef = useRef(false)
-  const lastPlayCallRef = useRef<string | null>(null)
-  const lastPlayTimeRef = useRef<number>(0)
-  const mountedRef = useRef(true)
-  const cleanupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+const singletonState: SingletonState = {
+  player: null,
+  audio: null,
+  isReady: false,
+  error: null,
+  initialized: false,
+  initializing: false,
+  deviceTransferred: false,
+  positionInterval: null,
+  currentUserId: null,
+  currentIsPremium: null,
+}
 
-  const isPremium = user?.spotifyPremium ?? false
+// Guards for play operations
+let playInProgress = false
+let lastPlayCall: string | null = null
+let lastPlayTime = 0
 
-  // Get store actions without subscribing to changes
-  const getStoreActions = useCallback(() => {
-    return usePlayerStore.getState()
-  }, [])
+// Subscriber pattern for state changes
+type Subscriber = () => void
+const subscribers = new Set<Subscriber>()
 
-  // Convert Spotify SDK track to our PlayerTrack type
-  const convertTrack = useCallback((spotifyTrack: SpotifySDKTrack): PlayerTrack => {
-    return {
-      id: spotifyTrack.id,
-      uri: spotifyTrack.uri,
-      name: spotifyTrack.name,
-      artists: spotifyTrack.artists.map((a) => a.name),
-      albumName: spotifyTrack.album.name,
-      albumId: spotifyTrack.album.uri.split(':')[2] || '',
-      coverUrl: spotifyTrack.album.images[0]?.url || null,
-      duration: spotifyTrack.duration_ms,
-      previewUrl: null,
+// Reference counting for cleanup
+let subscriberCount = 0
+
+function notifySubscribers() {
+  subscribers.forEach((callback) => callback())
+}
+
+function subscribe(callback: Subscriber): () => void {
+  subscribers.add(callback)
+  subscriberCount++
+  return () => {
+    subscribers.delete(callback)
+    subscriberCount--
+    // Only cleanup if no subscribers remain after a delay
+    // This handles React StrictMode and quick navigation
+    setTimeout(() => {
+      if (subscriberCount === 0) {
+        cleanupSingleton()
+      }
+    }, 1000)
+  }
+}
+
+function getSnapshot(): SingletonState {
+  return singletonState
+}
+
+function setError(error: string | null) {
+  singletonState.error = error
+  notifySubscribers()
+}
+
+function cleanupSingleton() {
+  console.log('[Spotify Player Singleton] Cleaning up...')
+
+  if (singletonState.player) {
+    singletonState.player.disconnect()
+    singletonState.player = null
+  }
+
+  if (singletonState.audio) {
+    singletonState.audio.pause()
+    singletonState.audio.src = ''
+    singletonState.audio = null
+  }
+
+  if (singletonState.positionInterval) {
+    clearInterval(singletonState.positionInterval)
+    singletonState.positionInterval = null
+  }
+
+  singletonState.isReady = false
+  singletonState.error = null
+  singletonState.initialized = false
+  singletonState.initializing = false
+  singletonState.deviceTransferred = false
+  singletonState.currentUserId = null
+  singletonState.currentIsPremium = null
+
+  // Reset play guards
+  playInProgress = false
+  lastPlayCall = null
+  lastPlayTime = 0
+
+  notifySubscribers()
+}
+
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+function convertTrack(spotifyTrack: SpotifySDKTrack): PlayerTrack {
+  return {
+    id: spotifyTrack.id,
+    uri: spotifyTrack.uri,
+    name: spotifyTrack.name,
+    artists: spotifyTrack.artists.map((a) => a.name),
+    albumName: spotifyTrack.album.name,
+    albumId: spotifyTrack.album.uri.split(':')[2] || '',
+    coverUrl: spotifyTrack.album.images[0]?.url || null,
+    duration: spotifyTrack.duration_ms,
+    previewUrl: null,
+  }
+}
+
+async function getAccessToken(): Promise<string | null> {
+  try {
+    const response = await apiClient.get<{ access_token: string }>(
+      '/api/auth/spotify/token'
+    )
+    return response.data.access_token
+  } catch (err) {
+    console.error('Failed to get access token:', err)
+    setError('Failed to authenticate with Spotify')
+    return null
+  }
+}
+
+async function transferPlayback(deviceId: string, token: string): Promise<boolean> {
+  try {
+    console.log('[Spotify Player] Transferring playback...')
+    const response = await fetch('https://api.spotify.com/v1/me/player', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        device_ids: [deviceId],
+        play: false,
+      }),
+    })
+    console.log('[Spotify Player] Transfer response:', response.status)
+    return response.ok || response.status === 204 || response.status === 404
+  } catch (err) {
+    console.error('[Spotify Player] Failed to transfer playback:', err)
+    return false
+  }
+}
+
+// =============================================================================
+// INITIALIZATION FUNCTIONS
+// =============================================================================
+
+async function initializePremiumPlayer() {
+  if (singletonState.initialized || singletonState.initializing) {
+    console.log('[Spotify Player Singleton] Already initialized or initializing, skipping')
+    return
+  }
+  singletonState.initializing = true
+  notifySubscribers()
+
+  try {
+    // Load SDK script if not already loaded
+    if (!document.getElementById(SDK_SCRIPT_ID)) {
+      const script = document.createElement('script')
+      script.id = SDK_SCRIPT_ID
+      script.src = SDK_URL
+      script.async = true
+      document.body.appendChild(script)
     }
-  }, [])
 
-  // Get fresh access token
-  const getAccessToken = useCallback(async (): Promise<string | null> => {
+    // Wait for SDK to be ready
+    await new Promise<void>((resolve) => {
+      if (window.Spotify) {
+        resolve()
+      } else {
+        window.onSpotifyWebPlaybackSDKReady = () => {
+          resolve()
+        }
+      }
+    })
+
+    // Create player instance
+    const token = await getAccessToken()
+    if (!token) {
+      singletonState.initializing = false
+      notifySubscribers()
+      return
+    }
+
+    const store = usePlayerStore.getState()
+    const player = new window.Spotify.Player({
+      name: 'Trackd Web Player',
+      getOAuthToken: async (cb) => {
+        const freshToken = await getAccessToken()
+        if (freshToken) cb(freshToken)
+      },
+      volume: store.volume / 100,
+    })
+
+    // Setup event listeners
+    player.addListener('ready', ({ device_id }: { device_id: string }) => {
+      console.log('[Spotify Player Singleton] Ready with Device ID:', device_id)
+      const s = usePlayerStore.getState()
+      s.setDeviceId(device_id)
+      s.setIsReady(true)
+      s.setIsPremium(true)
+      singletonState.isReady = true
+      singletonState.error = null
+      singletonState.deviceTransferred = false
+      notifySubscribers()
+
+      // Start position polling
+      if (singletonState.positionInterval) {
+        clearInterval(singletonState.positionInterval)
+      }
+      singletonState.positionInterval = setInterval(async () => {
+        try {
+          if (singletonState.player) {
+            const state = await singletonState.player.getCurrentState()
+            if (state && !state.paused) {
+              usePlayerStore.getState().setPosition(state.position)
+            }
+          }
+        } catch {
+          // Silently ignore errors during position polling
+        }
+      }, 500)
+    })
+
+    player.addListener('not_ready', ({ device_id }: { device_id: string }) => {
+      console.warn('[Spotify Player Singleton] Device has gone offline:', device_id)
+      usePlayerStore.getState().setIsReady(false)
+      singletonState.isReady = false
+      notifySubscribers()
+    })
+
+    player.addListener('player_state_changed', (state: SpotifyPlaybackState | null) => {
+      if (!state) return
+      const s = usePlayerStore.getState()
+      const track = convertTrack(state.track_window.current_track)
+      s.setTrack(track)
+      s.setIsPlaying(!state.paused)
+      s.setPosition(state.position)
+    })
+
+    player.addListener('initialization_error', ({ message }: WebPlaybackError) => {
+      console.error('[Spotify Player Singleton] Initialization Error:', message)
+      setError(`Initialization failed: ${message}`)
+      singletonState.initialized = false
+    })
+
+    player.addListener('authentication_error', ({ message }: WebPlaybackError) => {
+      console.error('[Spotify Player Singleton] Authentication Error:', message)
+      setError(`Authentication failed: ${message}`)
+    })
+
+    player.addListener('account_error', ({ message }: WebPlaybackError) => {
+      console.error('[Spotify Player Singleton] Account Error:', message)
+      setError(`Account error: ${message}`)
+    })
+
+    player.addListener('playback_error', ({ message }: WebPlaybackError) => {
+      console.error('[Spotify Player Singleton] Playback Error:', message)
+      setError(`Playback failed: ${message}`)
+    })
+
+    // Connect to the player
+    const connected = await player.connect()
+    if (connected) {
+      singletonState.player = player
+      singletonState.initialized = true
+      console.log('[Spotify Player Singleton] Successfully connected')
+    } else {
+      setError('Failed to connect to Spotify')
+    }
+  } catch (err) {
+    console.error('[Spotify Player Singleton] Initialization error:', err)
+    setError('Failed to initialize player')
+  } finally {
+    singletonState.initializing = false
+    notifySubscribers()
+  }
+}
+
+function initializeFreePlayer() {
+  if (singletonState.initialized || singletonState.initializing) {
+    console.log('[Spotify Player Singleton] Free player already initialized or initializing, skipping')
+    return
+  }
+  singletonState.initializing = true
+  notifySubscribers()
+
+  try {
+    if (!singletonState.audio) {
+      const store = usePlayerStore.getState()
+      singletonState.audio = new Audio()
+      singletonState.audio.volume = store.volume / 100
+
+      // Setup audio element event listeners
+      singletonState.audio.addEventListener('play', () => {
+        usePlayerStore.getState().setIsPlaying(true)
+      })
+
+      singletonState.audio.addEventListener('pause', () => {
+        usePlayerStore.getState().setIsPlaying(false)
+      })
+
+      singletonState.audio.addEventListener('ended', () => {
+        const s = usePlayerStore.getState()
+        s.setIsPlaying(false)
+        s.setPosition(0)
+      })
+
+      singletonState.audio.addEventListener('error', () => {
+        console.error('Audio playback error')
+        setError('Failed to play preview')
+        usePlayerStore.getState().setIsPlaying(false)
+      })
+
+      singletonState.audio.addEventListener('loadedmetadata', () => {
+        const s = usePlayerStore.getState()
+        s.setPosition(0)
+        if (singletonState.audio && singletonState.audio.duration && isFinite(singletonState.audio.duration)) {
+          s.setDuration(singletonState.audio.duration * 1000)
+        }
+      })
+
+      singletonState.audio.addEventListener('timeupdate', () => {
+        if (singletonState.audio) {
+          usePlayerStore.getState().setPosition(singletonState.audio.currentTime * 1000)
+        }
+      })
+    }
+
+    const s = usePlayerStore.getState()
+    s.setIsReady(true)
+    s.setIsPremium(false)
+    singletonState.isReady = true
+    singletonState.initialized = true
+  } finally {
+    singletonState.initializing = false
+    notifySubscribers()
+  }
+}
+
+// =============================================================================
+// PLAYBACK CONTROL FUNCTIONS
+// =============================================================================
+
+async function play(uri?: string, isPremium?: boolean) {
+  console.log('[Spotify Player] play() called with uri:', uri)
+
+  if (playInProgress) {
+    console.log('[Spotify Player] Play already in progress, skipping')
+    return
+  }
+
+  // Debounce
+  const playKey = uri || 'resume'
+  const now = Date.now()
+  if (lastPlayCall === playKey && now - lastPlayTime < 500) {
+    console.log('[Spotify Player] Duplicate play call detected, skipping')
+    return
+  }
+  lastPlayCall = playKey
+  lastPlayTime = now
+  playInProgress = true
+
+  try {
+    const store = usePlayerStore.getState()
+    console.log('[Spotify Player] State check:', {
+      isPremium,
+      hasPlayer: !!singletonState.player,
+      deviceId: store.deviceId,
+      isReady: store.isReady,
+    })
+
+    if (isPremium && singletonState.player && store.deviceId) {
+      const maxRetries = 2
+      const deviceId = store.deviceId
+
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          if (!singletonState.player) {
+            console.warn('[Spotify Player] Player became null, aborting')
+            return
+          }
+
+          const token = await getAccessToken()
+          if (!token) {
+            setError('Authentication failed. Please log in again.')
+            return
+          }
+
+          // Activate the player element
+          try {
+            await singletonState.player.activateElement()
+            console.log('[Spotify Player] Player element activated')
+          } catch (activateErr) {
+            console.log('[Spotify Player] Activation note:', activateErr)
+          }
+
+          // Transfer device on first play or on retry
+          if (!singletonState.deviceTransferred || attempt > 0) {
+            console.log('[Spotify Player] Transferring device...', { firstPlay: !singletonState.deviceTransferred, attempt })
+            const transferred = await transferPlayback(deviceId, token)
+            if (transferred) {
+              singletonState.deviceTransferred = true
+              await new Promise((resolve) => setTimeout(resolve, 300))
+            } else if (attempt === maxRetries) {
+              throw new Error('Failed to transfer playback to this device')
+            }
+          }
+
+          const endpoint = `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`
+          const body = uri ? { uris: [uri] } : {}
+
+          console.log('[Spotify Player] Calling play API...', { endpoint, body })
+
+          const response = await fetch(endpoint, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(body),
+          })
+
+          console.log('[Spotify Player] Play API response:', response.status)
+
+          if (response.ok || response.status === 204) {
+            console.log('[Spotify Player] Playback started successfully!')
+            setError(null)
+            return
+          }
+
+          if (response.status === 404) {
+            console.warn('[Spotify Player] Device not found (404), will retry with transfer')
+            singletonState.deviceTransferred = false
+            if (attempt < maxRetries) continue
+          }
+
+          if (response.status === 401) {
+            console.warn('[Spotify Player] Token expired (401), retrying...')
+            if (attempt < maxRetries) continue
+          }
+
+          if (response.status === 403) {
+            const errorBody = await response.text()
+            console.error('[Spotify Player] Forbidden (403):', errorBody)
+            setError('Playback restricted. Make sure Spotify is not playing elsewhere.')
+            return
+          }
+
+          if (response.status === 502 || response.status === 503) {
+            console.warn('[Spotify Player] Spotify API error, retrying...')
+            if (attempt < maxRetries) {
+              await new Promise((resolve) => setTimeout(resolve, 500))
+              continue
+            }
+          }
+
+          const errorText = await response.text()
+          console.error('[Spotify Player] Error response body:', errorText)
+          throw new Error(`Playback failed: ${response.status}`)
+        } catch (err) {
+          console.error(`[Spotify Player] Play error (attempt ${attempt + 1}):`, err)
+          if (attempt === maxRetries) {
+            setError('Failed to start playback. Please try again.')
+          }
+        }
+      }
+    } else if (!isPremium && singletonState.audio) {
+      if (uri) {
+        singletonState.audio.src = uri
+        try {
+          await singletonState.audio.play()
+          setError(null)
+        } catch (err) {
+          console.error('Audio play error:', err)
+          setError('Failed to play preview')
+        }
+      } else {
+        setError('No preview available for this track')
+      }
+    } else {
+      console.log('[Spotify Player] Cannot play - missing requirements:', {
+        isPremium,
+        hasPlayer: !!singletonState.player,
+        deviceId: store.deviceId,
+        hasAudio: !!singletonState.audio,
+      })
+    }
+  } finally {
+    playInProgress = false
+  }
+}
+
+async function pause(isPremium: boolean) {
+  if (isPremium && singletonState.player) {
     try {
-      const response = await apiClient.get<{ access_token: string }>(
-        '/api/auth/spotify/token'
-      )
-      return response.data.access_token
+      await singletonState.player.pause()
+      setError(null)
     } catch (err) {
-      console.error('Failed to get access token:', err)
-      setError('Failed to authenticate with Spotify')
-      return null
+      console.error('Pause error:', err)
+      setError('Failed to pause')
     }
-  }, [])
+  } else if (!isPremium && singletonState.audio) {
+    singletonState.audio.pause()
+  }
+}
 
-  // Transfer playback to this device (required before play commands work)
-  const transferPlayback = useCallback(
-    async (deviceId: string, token: string): Promise<boolean> => {
+async function resume(isPremium: boolean) {
+  if (isPremium && singletonState.player) {
+    try {
+      await singletonState.player.resume()
+      setError(null)
+    } catch (err) {
+      console.error('Resume error:', err)
+      setError('Failed to resume')
+    }
+  } else if (!isPremium && singletonState.audio) {
+    try {
+      await singletonState.audio.play()
+      setError(null)
+    } catch (err) {
+      console.error('Audio play error:', err)
+      setError('Failed to play')
+    }
+  }
+}
+
+async function seek(positionMs: number, isPremium: boolean) {
+  if (isPremium && singletonState.player) {
+    try {
+      await singletonState.player.seek(positionMs)
+      setError(null)
+    } catch (err) {
+      console.error('Seek error:', err)
+      setError('Failed to seek')
+    }
+  } else if (!isPremium && singletonState.audio) {
+    singletonState.audio.currentTime = positionMs / 1000
+  }
+}
+
+async function nextTrackFn(isPremium: boolean) {
+  const store = usePlayerStore.getState()
+  const { queue, queueIndex, repeatMode } = store
+
+  if (repeatMode === 'track') {
+    if (isPremium && singletonState.player) {
+      await singletonState.player.seek(0)
+    }
+    store.setPosition(0)
+    return
+  }
+
+  let nextIndex = queueIndex + 1
+
+  if (nextIndex >= queue.length) {
+    if (repeatMode === 'context') {
+      nextIndex = 0
+    } else {
+      store.setIsPlaying(false)
+      store.setPosition(0)
+      return
+    }
+  }
+
+  const nextTrackData = queue[nextIndex]
+  if (!nextTrackData) return
+
+  store.nextTrack()
+
+  if (isPremium && singletonState.player && nextTrackData.uri) {
+    try {
+      const token = await getAccessToken()
+      if (!token) {
+        setError('Authentication failed')
+        return
+      }
+
+      const deviceId = usePlayerStore.getState().deviceId
+      if (!deviceId) {
+        setError('No device available')
+        return
+      }
+
+      console.log('[Spotify Player] nextTrack - playing:', nextTrackData.uri)
+
       try {
-        console.log('[Spotify Player] Transferring playback...')
-        const response = await fetch('https://api.spotify.com/v1/me/player', {
+        await singletonState.player.activateElement()
+      } catch {
+        // Continue anyway
+      }
+
+      const response = await fetch(
+        `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
+        {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({
-            device_ids: [deviceId],
-            play: false, // Don't auto-play, we'll call play() after
-          }),
-        })
-        console.log('[Spotify Player] Transfer response:', response.status)
-        // 204 = success, 404 = no active device (acceptable)
-        return response.ok || response.status === 204 || response.status === 404
-      } catch (err) {
-        console.error('[Spotify Player] Failed to transfer playback:', err)
-        return false
-      }
-    },
-    []
-  )
-
-  // Initialize Premium SDK player
-  const initializePremiumPlayer = useCallback(async () => {
-    // Guard against concurrent initialization
-    if (initializedRef.current || initializingRef.current) {
-      console.log('[Spotify Player] Already initialized or initializing, skipping')
-      return
-    }
-    initializingRef.current = true
-
-    try {
-      // Load SDK script if not already loaded
-      if (!document.getElementById(SDK_SCRIPT_ID)) {
-        const script = document.createElement('script')
-        script.id = SDK_SCRIPT_ID
-        script.src = SDK_URL
-        script.async = true
-        document.body.appendChild(script)
-      }
-
-      // Wait for SDK to be ready
-      await new Promise<void>((resolve) => {
-        if (window.Spotify) {
-          resolve()
-        } else {
-          window.onSpotifyWebPlaybackSDKReady = () => {
-            resolve()
-          }
+          body: JSON.stringify({ uris: [nextTrackData.uri] }),
         }
-      })
+      )
 
-      // Check if still mounted after async operation
-      if (!mountedRef.current) {
-        console.log('[Spotify Player] Component unmounted during initialization, aborting')
-        return
-      }
+      if (!response.ok && response.status !== 204) {
+        const errorText = await response.text()
+        console.error('Next track API error:', response.status, errorText)
 
-      // Create player instance
-      const token = await getAccessToken()
-      if (!token) {
-        return
-      }
-
-      // Check again after token fetch
-      if (!mountedRef.current) {
-        return
-      }
-
-      const store = getStoreActions()
-      const player = new window.Spotify.Player({
-        name: 'Trackd Web Player',
-        getOAuthToken: async (cb) => {
-          const freshToken = await getAccessToken()
-          if (freshToken) cb(freshToken)
-        },
-        volume: store.volume / 100,
-      })
-
-      // Setup event listeners
-      player.addListener('ready', ({ device_id }: { device_id: string }) => {
-        console.log('Spotify Web Playback SDK Ready with Device ID:', device_id)
-        const s = getStoreActions()
-        s.setDeviceId(device_id)
-        s.setIsReady(true)
-        s.setIsPremium(true)
-        setIsReady(true)
-        setError(null)
-        // Reset device transfer flag so we transfer on first play
-        deviceTransferredRef.current = false
-
-        // Start position polling for smoother progress bar updates
-        // The SDK's player_state_changed event fires infrequently (~30s)
-        // Use the 'player' variable from closure since playerRef may not be set yet
-        if (premiumPositionIntervalRef.current) {
-          clearInterval(premiumPositionIntervalRef.current)
-        }
-        premiumPositionIntervalRef.current = setInterval(async () => {
-          try {
-            const state = await player.getCurrentState()
-            if (state && !state.paused) {
-              getStoreActions().setPosition(state.position)
+        if (response.status === 404) {
+          console.log('[Spotify Player] Device not found, transferring playback...')
+          await transferPlayback(deviceId, token)
+          const retryResponse = await fetch(
+            `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
+            {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ uris: [nextTrackData.uri] }),
             }
-          } catch (err) {
-            // Silently ignore errors during position polling
+          )
+          if (!retryResponse.ok && retryResponse.status !== 204) {
+            setError('Failed to skip to next track')
+          } else {
+            setError(null)
           }
-        }, 500) // Poll every 500ms for smooth progress updates
-      })
-
-      player.addListener('not_ready', ({ device_id }: { device_id: string }) => {
-        console.warn('Spotify Web Playback SDK Device has gone offline:', device_id)
-        const s = getStoreActions()
-        s.setIsReady(false)
-        setIsReady(false)
-      })
-
-      player.addListener('player_state_changed', (state: SpotifyPlaybackState | null) => {
-        if (!state) return
-        const s = getStoreActions()
-        const track = convertTrack(state.track_window.current_track)
-        s.setTrack(track)
-        s.setIsPlaying(!state.paused)
-        s.setPosition(state.position)
-      })
-
-      player.addListener('initialization_error', ({ message }: WebPlaybackError) => {
-        console.error('Spotify SDK Initialization Error:', message)
-        setError(`Initialization failed: ${message}`)
-        initializedRef.current = false
-      })
-
-      player.addListener('authentication_error', ({ message }: WebPlaybackError) => {
-        console.error('Spotify SDK Authentication Error:', message)
-        setError(`Authentication failed: ${message}`)
-      })
-
-      player.addListener('account_error', ({ message }: WebPlaybackError) => {
-        console.error('Spotify SDK Account Error:', message)
-        setError(`Account error: ${message}`)
-      })
-
-      player.addListener('playback_error', ({ message }: WebPlaybackError) => {
-        console.error('Spotify SDK Playback Error:', message)
-        setError(`Playback failed: ${message}`)
-      })
-
-      // Connect to the player
-      const connected = await player.connect()
-      if (connected) {
-        playerRef.current = player
-        initializedRef.current = true // Only set AFTER successful connection
-        console.log('Successfully connected to Spotify Web Playback SDK')
+        } else {
+          setError('Failed to skip to next track')
+        }
       } else {
-        setError('Failed to connect to Spotify')
+        setError(null)
       }
     } catch (err) {
-      console.error('[Spotify Player] Initialization error:', err)
-      setError('Failed to initialize player')
-    } finally {
-      initializingRef.current = false
+      console.error('Next track error:', err)
+      setError('Failed to skip to next track')
     }
-  }, [getAccessToken, convertTrack, getStoreActions])
-
-  // Initialize Free tier audio player
-  const initializeFreePlayer = useCallback(() => {
-    // Guard against concurrent initialization
-    if (initializedRef.current || initializingRef.current) {
-      console.log('[Spotify Player] Free player already initialized or initializing, skipping')
-      return
-    }
-    initializingRef.current = true
-
+  } else if (!isPremium && singletonState.audio && nextTrackData.previewUrl) {
+    singletonState.audio.src = nextTrackData.previewUrl
     try {
-      if (!audioRef.current) {
-        const store = getStoreActions()
-        audioRef.current = new Audio()
-        audioRef.current.volume = store.volume / 100
+      await singletonState.audio.play()
+      setError(null)
+    } catch (err) {
+      console.error('Audio play error:', err)
+      setError('Failed to play preview')
+    }
+  }
+}
 
-        // Setup audio element event listeners
-        audioRef.current.addEventListener('play', () => {
-          getStoreActions().setIsPlaying(true)
-        })
+async function previousTrackFn(isPremium: boolean) {
+  const store = usePlayerStore.getState()
+  const { queue, queueIndex, position } = store
 
-        audioRef.current.addEventListener('pause', () => {
-          getStoreActions().setIsPlaying(false)
-        })
+  if (position > 3000) {
+    if (isPremium && singletonState.player) {
+      try {
+        await singletonState.player.seek(0)
+        setError(null)
+      } catch (err) {
+        console.error('Seek error:', err)
+      }
+    } else if (!isPremium && singletonState.audio) {
+      singletonState.audio.currentTime = 0
+    }
+    store.setPosition(0)
+    return
+  }
 
-        audioRef.current.addEventListener('ended', () => {
-          const s = getStoreActions()
-          s.setIsPlaying(false)
-          s.setPosition(0)
-        })
+  const prevIndex = Math.max(0, queueIndex - 1)
 
-        audioRef.current.addEventListener('error', () => {
-          console.error('Audio playback error')
-          setError('Failed to play preview')
-          getStoreActions().setIsPlaying(false)
-        })
+  if (prevIndex === queueIndex) {
+    if (isPremium && singletonState.player) {
+      try {
+        await singletonState.player.seek(0)
+        setError(null)
+      } catch (err) {
+        console.error('Seek error:', err)
+      }
+    } else if (!isPremium && singletonState.audio) {
+      singletonState.audio.currentTime = 0
+    }
+    store.setPosition(0)
+    return
+  }
 
-        // Handle when new audio source is loaded - reset position and set actual duration
-        audioRef.current.addEventListener('loadedmetadata', () => {
-          const s = getStoreActions()
-          // Reset position when new track loads
-          s.setPosition(0)
-          // Use actual audio duration (30s for previews) instead of full track duration
-          if (audioRef.current && audioRef.current.duration && isFinite(audioRef.current.duration)) {
-            s.setDuration(audioRef.current.duration * 1000)
-          }
-        })
+  const prevTrackData = queue[prevIndex]
+  if (!prevTrackData) return
 
-        // Track position for free tier using timeupdate event (more reliable than setInterval)
-        audioRef.current.addEventListener('timeupdate', () => {
-          if (audioRef.current) {
-            getStoreActions().setPosition(audioRef.current.currentTime * 1000)
-          }
-        })
+  store.previousTrack()
+
+  if (isPremium && singletonState.player && prevTrackData.uri) {
+    try {
+      const token = await getAccessToken()
+      if (!token) {
+        setError('Authentication failed')
+        return
       }
 
-      const s = getStoreActions()
-      s.setIsReady(true)
-      s.setIsPremium(false)
-      setIsReady(true)
-      initializedRef.current = true
-    } finally {
-      initializingRef.current = false
+      const deviceId = usePlayerStore.getState().deviceId
+      if (!deviceId) {
+        setError('No device available')
+        return
+      }
+
+      console.log('[Spotify Player] previousTrack - playing:', prevTrackData.uri)
+
+      try {
+        await singletonState.player.activateElement()
+      } catch {
+        // Continue anyway
+      }
+
+      const response = await fetch(
+        `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ uris: [prevTrackData.uri] }),
+        }
+      )
+
+      if (!response.ok && response.status !== 204) {
+        const errorText = await response.text()
+        console.error('Previous track API error:', response.status, errorText)
+
+        if (response.status === 404) {
+          console.log('[Spotify Player] Device not found, transferring playback...')
+          await transferPlayback(deviceId, token)
+          const retryResponse = await fetch(
+            `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
+            {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ uris: [prevTrackData.uri] }),
+            }
+          )
+          if (!retryResponse.ok && retryResponse.status !== 204) {
+            setError('Failed to skip to previous track')
+          } else {
+            setError(null)
+          }
+        } else {
+          setError('Failed to skip to previous track')
+        }
+      } else {
+        setError(null)
+      }
+    } catch (err) {
+      console.error('Previous track error:', err)
+      setError('Failed to skip to previous track')
     }
-  }, [getStoreActions])
-
-  // Refs to hold latest callbacks - prevents useEffect re-runs when callbacks change
-  const initializePremiumPlayerRef = useRef(initializePremiumPlayer)
-  const initializeFreePlayerRef = useRef(initializeFreePlayer)
-
-  // Keep refs updated with latest callbacks
-  useEffect(() => {
-    initializePremiumPlayerRef.current = initializePremiumPlayer
-    initializeFreePlayerRef.current = initializeFreePlayer
-  }, [initializePremiumPlayer, initializeFreePlayer])
-
-  // Initialize player based on premium status
-  useEffect(() => {
-    mountedRef.current = true
-
-    // Cancel any pending cleanup from StrictMode's previous unmount
-    if (cleanupTimeoutRef.current) {
-      clearTimeout(cleanupTimeoutRef.current)
-      cleanupTimeoutRef.current = null
+  } else if (!isPremium && singletonState.audio && prevTrackData.previewUrl) {
+    singletonState.audio.src = prevTrackData.previewUrl
+    try {
+      await singletonState.audio.play()
+      setError(null)
+    } catch (err) {
+      console.error('Audio play error:', err)
+      setError('Failed to play preview')
     }
+  }
+}
 
+async function setVolumeFn(volume: number, isPremium: boolean) {
+  const clampedVolume = Math.max(0, Math.min(100, volume))
+  usePlayerStore.getState().setVolume(clampedVolume)
+
+  if (isPremium && singletonState.player) {
+    try {
+      await singletonState.player.setVolume(clampedVolume / 100)
+      setError(null)
+    } catch (err) {
+      console.error('Set volume error:', err)
+      setError('Failed to set volume')
+    }
+  } else if (!isPremium && singletonState.audio) {
+    singletonState.audio.volume = clampedVolume / 100
+  }
+}
+
+// =============================================================================
+// THE HOOK
+// =============================================================================
+
+export function useSpotifyPlayer(): UseSpotifyPlayerReturn {
+  const user = useAuthStore((state) => state.user)
+  const isPremium = user?.spotifyPremium ?? false
+
+  // Subscribe to singleton state changes using useSyncExternalStore
+  const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+
+  // Initialize player when user/premium status changes
+  useEffect(() => {
     if (!user) return
 
-    if (isPremium) {
-      initializePremiumPlayerRef.current()
-    } else {
-      initializeFreePlayerRef.current()
+    // Check if we need to reinitialize (user or premium status changed)
+    const needsReinit =
+      singletonState.currentUserId !== user.id ||
+      singletonState.currentIsPremium !== isPremium
+
+    if (needsReinit && singletonState.initialized) {
+      console.log('[Spotify Player Hook] User or premium status changed, reinitializing...')
+      cleanupSingleton()
     }
 
-    return () => {
-      mountedRef.current = false
+    // Update tracking
+    singletonState.currentUserId = user.id
+    singletonState.currentIsPremium = isPremium
 
-      // Delay cleanup to handle StrictMode double-invoke pattern
-      // React StrictMode unmounts and remounts immediately in development
-      cleanupTimeoutRef.current = setTimeout(() => {
-        // Only cleanup if component is actually still unmounted
-        if (!mountedRef.current) {
-          if (playerRef.current) {
-            playerRef.current.disconnect()
-            playerRef.current = null
-          }
-
-          if (audioRef.current) {
-            audioRef.current.pause()
-            audioRef.current.src = ''
-            audioRef.current = null
-          }
-
-          if (premiumPositionIntervalRef.current) {
-            clearInterval(premiumPositionIntervalRef.current)
-            premiumPositionIntervalRef.current = null
-          }
-
-          initializedRef.current = false
-          initializingRef.current = false
-          deviceTransferredRef.current = false
-        }
-      }, 100)
+    // Initialize appropriate player
+    if (isPremium) {
+      initializePremiumPlayer()
+    } else {
+      initializeFreePlayer()
     }
   }, [user?.id, isPremium])
 
-  // Playback control functions with retry logic
-  const play = useCallback(
+  // Create stable callback references
+  const playFn = useCallback(
     async (uri?: string) => {
-      console.log('[Spotify Player] play() called with uri:', uri)
-
-      // Guard against concurrent play calls
-      if (playInProgressRef.current) {
-        console.log('[Spotify Player] Play already in progress, skipping')
+      if (!user) {
+        setError('Please log in to play music')
         return
       }
-
-      // Debounce: Skip if same URI was just requested within 500ms
-      const playKey = uri || 'resume'
-      const now = Date.now()
-      if (lastPlayCallRef.current === playKey && now - lastPlayTimeRef.current < 500) {
-        console.log('[Spotify Player] Duplicate play call detected, skipping')
-        return
-      }
-      lastPlayCallRef.current = playKey
-      lastPlayTimeRef.current = now
-      playInProgressRef.current = true
-
-      try {
-        if (!user) {
-          console.log('[Spotify Player] No user, aborting')
-          setError('Please log in to play music')
-          return
-        }
-
-        const store = getStoreActions()
-        console.log('[Spotify Player] State check:', {
-          isPremium,
-          hasPlayerRef: !!playerRef.current,
-          deviceId: store.deviceId,
-          isReady: store.isReady,
-        })
-
-        if (isPremium && playerRef.current && store.deviceId) {
-          const maxRetries = 2
-          const deviceId = store.deviceId // Capture device ID to avoid stale reference
-
-          for (let attempt = 0; attempt <= maxRetries; attempt++) {
-            try {
-              // Check if player is still valid (component might have unmounted)
-              if (!playerRef.current) {
-                console.warn('[Spotify Player] Player ref became null, aborting')
-                return
-              }
-
-              const token = await getAccessToken()
-              if (!token) {
-                setError('Authentication failed. Please log in again.')
-                return
-              }
-
-              // Activate the player element (required by browser autoplay policy)
-              try {
-                await playerRef.current.activateElement()
-                console.log('[Spotify Player] Player element activated')
-              } catch (activateErr) {
-                console.log('[Spotify Player] Activation note:', activateErr)
-                // Continue anyway - activation might not be needed
-              }
-
-              // Transfer device on first play or on retry
-              // This ensures Spotify knows which device to stream to
-              if (!deviceTransferredRef.current || attempt > 0) {
-                console.log('[Spotify Player] Transferring device...', { firstPlay: !deviceTransferredRef.current, attempt })
-                const transferred = await transferPlayback(deviceId, token)
-                if (transferred) {
-                  deviceTransferredRef.current = true
-                  // Wait for Spotify to register the device
-                  await new Promise((resolve) => setTimeout(resolve, 300))
-                } else if (attempt === maxRetries) {
-                  throw new Error('Failed to transfer playback to this device')
-                }
-              }
-
-              // Use Spotify Web API to start playback
-              const endpoint = `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`
-              const body = uri ? { uris: [uri] } : {}
-
-              console.log('[Spotify Player] Calling play API...', { endpoint, body })
-
-              const response = await fetch(endpoint, {
-                method: 'PUT',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(body),
-              })
-
-              console.log('[Spotify Player] Play API response:', response.status)
-
-              if (response.ok || response.status === 204) {
-                console.log('[Spotify Player] Playback started successfully!')
-                setError(null)
-                return // Success!
-              }
-
-              // Handle specific error codes
-              if (response.status === 404) {
-                // Device not found - retry with transfer
-                console.warn('[Spotify Player] Device not found (404), will retry with transfer')
-                if (attempt < maxRetries) continue
-              }
-
-              if (response.status === 401) {
-                // Token expired - will get fresh one on retry
-                console.warn('[Spotify Player] Token expired (401), retrying...')
-                if (attempt < maxRetries) continue
-              }
-
-              if (response.status === 403) {
-                // Try to get more info about the error
-                const errorBody = await response.text()
-                console.error('[Spotify Player] Forbidden (403):', errorBody)
-                setError('Playback restricted. Make sure Spotify is not playing elsewhere.')
-                return
-              }
-
-              if (response.status === 502 || response.status === 503) {
-                // Spotify API temporary failure - retry
-                console.warn('[Spotify Player] Spotify API error, retrying...')
-                if (attempt < maxRetries) {
-                  await new Promise((resolve) => setTimeout(resolve, 500))
-                  continue
-                }
-              }
-
-              // Log the error body for debugging
-              const errorText = await response.text()
-              console.error('[Spotify Player] Error response body:', errorText)
-
-              throw new Error(`Playback failed: ${response.status}`)
-            } catch (err) {
-              console.error(`[Spotify Player] Play error (attempt ${attempt + 1}):`, err)
-              if (attempt === maxRetries) {
-                setError('Failed to start playback. Please try again.')
-              }
-            }
-          }
-        } else if (!isPremium && audioRef.current) {
-          // For free tier, uri should be a preview URL
-          if (uri) {
-            audioRef.current.src = uri
-            try {
-              await audioRef.current.play()
-              setError(null)
-            } catch (err) {
-              console.error('Audio play error:', err)
-              setError('Failed to play preview')
-            }
-          } else {
-            setError('No preview available for this track')
-          }
-        } else {
-          console.log('[Spotify Player] Cannot play - missing requirements:', {
-            isPremium,
-            hasPlayerRef: !!playerRef.current,
-            deviceId: store.deviceId,
-            hasAudioRef: !!audioRef.current,
-          })
-        }
-      } finally {
-        playInProgressRef.current = false
-      }
+      await play(uri, isPremium)
     },
-    [user, isPremium, getAccessToken, getStoreActions, transferPlayback]
+    [user, isPremium]
   )
 
-  const pause = useCallback(async () => {
-    if (isPremium && playerRef.current) {
-      try {
-        await playerRef.current.pause()
-        setError(null)
-      } catch (err) {
-        console.error('Pause error:', err)
-        setError('Failed to pause')
-      }
-    } else if (!isPremium && audioRef.current) {
-      audioRef.current.pause()
-    }
+  const pauseFn = useCallback(async () => {
+    await pause(isPremium)
   }, [isPremium])
 
-  const resume = useCallback(async () => {
-    if (isPremium && playerRef.current) {
-      try {
-        await playerRef.current.resume()
-        setError(null)
-      } catch (err) {
-        console.error('Resume error:', err)
-        setError('Failed to resume')
-      }
-    } else if (!isPremium && audioRef.current) {
-      try {
-        await audioRef.current.play()
-        setError(null)
-      } catch (err) {
-        console.error('Audio play error:', err)
-        setError('Failed to play')
-      }
-    }
+  const resumeFn = useCallback(async () => {
+    await resume(isPremium)
   }, [isPremium])
 
-  const seek = useCallback(
+  const seekFn = useCallback(
     async (positionMs: number) => {
-      if (isPremium && playerRef.current) {
-        try {
-          await playerRef.current.seek(positionMs)
-          setError(null)
-        } catch (err) {
-          console.error('Seek error:', err)
-          setError('Failed to seek')
-        }
-      } else if (!isPremium && audioRef.current) {
-        audioRef.current.currentTime = positionMs / 1000
-      }
+      await seek(positionMs, isPremium)
     },
     [isPremium]
   )
 
-  const nextTrack = useCallback(async () => {
-    const store = getStoreActions()
-    const { queue, queueIndex, repeatMode } = usePlayerStore.getState()
+  const nextTrackCallback = useCallback(async () => {
+    await nextTrackFn(isPremium)
+  }, [isPremium])
 
-    // Handle repeat track mode - restart current track
-    if (repeatMode === 'track') {
-      if (isPremium && playerRef.current) {
-        await playerRef.current.seek(0)
-      }
-      store.setPosition(0)
-      return
-    }
+  const previousTrackCallback = useCallback(async () => {
+    await previousTrackFn(isPremium)
+  }, [isPremium])
 
-    // Calculate next index
-    let nextIndex = queueIndex + 1
-
-    // Handle end of queue
-    if (nextIndex >= queue.length) {
-      if (repeatMode === 'context') {
-        nextIndex = 0
-      } else {
-        // Stop playback at end
-        store.setIsPlaying(false)
-        store.setPosition(0)
-        return
-      }
-    }
-
-    const nextTrackData = queue[nextIndex]
-    if (!nextTrackData) return
-
-    // Update store state first
-    store.nextTrack()
-
-    // Play the track
-    if (isPremium && playerRef.current && nextTrackData.uri) {
-      try {
-        const token = await getAccessToken()
-        if (!token) {
-          setError('Authentication failed')
-          return
-        }
-
-        // Get fresh device ID from store
-        const deviceId = usePlayerStore.getState().deviceId
-        if (!deviceId) {
-          setError('No device available')
-          return
-        }
-
-        console.log('[Spotify Player] nextTrack - playing:', nextTrackData.uri)
-
-        // Activate player element first (browser autoplay policy)
-        try {
-          await playerRef.current.activateElement()
-        } catch {
-          // Continue anyway
-        }
-
-        const response = await fetch(
-          `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
-          {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ uris: [nextTrackData.uri] }),
-          }
-        )
-
-        if (!response.ok && response.status !== 204) {
-          const errorText = await response.text()
-          console.error('Next track API error:', response.status, errorText)
-
-          // If device not found, try to transfer playback first
-          if (response.status === 404) {
-            console.log('[Spotify Player] Device not found, transferring playback...')
-            await transferPlayback(deviceId, token)
-            // Retry the play call
-            const retryResponse = await fetch(
-              `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
-              {
-                method: 'PUT',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ uris: [nextTrackData.uri] }),
-              }
-            )
-            if (!retryResponse.ok && retryResponse.status !== 204) {
-              setError('Failed to skip to next track')
-            } else {
-              setError(null)
-            }
-          } else {
-            setError('Failed to skip to next track')
-          }
-        } else {
-          setError(null)
-        }
-      } catch (err) {
-        console.error('Next track error:', err)
-        setError('Failed to skip to next track')
-      }
-    } else if (!isPremium && audioRef.current && nextTrackData.previewUrl) {
-      // Free tier - play preview
-      audioRef.current.src = nextTrackData.previewUrl
-      try {
-        await audioRef.current.play()
-        setError(null)
-      } catch (err) {
-        console.error('Audio play error:', err)
-        setError('Failed to play preview')
-      }
-    }
-  }, [isPremium, getStoreActions, getAccessToken, transferPlayback])
-
-  const previousTrack = useCallback(async () => {
-    const store = getStoreActions()
-    const { queue, queueIndex, position } = usePlayerStore.getState()
-
-    // If more than 3 seconds into track, restart current track
-    if (position > 3000) {
-      if (isPremium && playerRef.current) {
-        try {
-          await playerRef.current.seek(0)
-          setError(null)
-        } catch (err) {
-          console.error('Seek error:', err)
-        }
-      } else if (!isPremium && audioRef.current) {
-        audioRef.current.currentTime = 0
-      }
-      store.setPosition(0)
-      return
-    }
-
-    // Go to previous track
-    const prevIndex = Math.max(0, queueIndex - 1)
-
-    // If already at first track, just restart it
-    if (prevIndex === queueIndex) {
-      if (isPremium && playerRef.current) {
-        try {
-          await playerRef.current.seek(0)
-          setError(null)
-        } catch (err) {
-          console.error('Seek error:', err)
-        }
-      } else if (!isPremium && audioRef.current) {
-        audioRef.current.currentTime = 0
-      }
-      store.setPosition(0)
-      return
-    }
-
-    const prevTrackData = queue[prevIndex]
-    if (!prevTrackData) return
-
-    // Update store state first
-    store.previousTrack()
-
-    // Play the track
-    if (isPremium && playerRef.current && prevTrackData.uri) {
-      try {
-        const token = await getAccessToken()
-        if (!token) {
-          setError('Authentication failed')
-          return
-        }
-
-        // Get fresh device ID from store
-        const deviceId = usePlayerStore.getState().deviceId
-        if (!deviceId) {
-          setError('No device available')
-          return
-        }
-
-        console.log('[Spotify Player] previousTrack - playing:', prevTrackData.uri)
-
-        // Activate player element first (browser autoplay policy)
-        try {
-          await playerRef.current.activateElement()
-        } catch {
-          // Continue anyway
-        }
-
-        const response = await fetch(
-          `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
-          {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ uris: [prevTrackData.uri] }),
-          }
-        )
-
-        if (!response.ok && response.status !== 204) {
-          const errorText = await response.text()
-          console.error('Previous track API error:', response.status, errorText)
-
-          // If device not found, try to transfer playback first
-          if (response.status === 404) {
-            console.log('[Spotify Player] Device not found, transferring playback...')
-            await transferPlayback(deviceId, token)
-            // Retry the play call
-            const retryResponse = await fetch(
-              `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
-              {
-                method: 'PUT',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ uris: [prevTrackData.uri] }),
-              }
-            )
-            if (!retryResponse.ok && retryResponse.status !== 204) {
-              setError('Failed to skip to previous track')
-            } else {
-              setError(null)
-            }
-          } else {
-            setError('Failed to skip to previous track')
-          }
-        } else {
-          setError(null)
-        }
-      } catch (err) {
-        console.error('Previous track error:', err)
-        setError('Failed to skip to previous track')
-      }
-    } else if (!isPremium && audioRef.current && prevTrackData.previewUrl) {
-      // Free tier - play preview
-      audioRef.current.src = prevTrackData.previewUrl
-      try {
-        await audioRef.current.play()
-        setError(null)
-      } catch (err) {
-        console.error('Audio play error:', err)
-        setError('Failed to play preview')
-      }
-    }
-  }, [isPremium, getStoreActions, getAccessToken, transferPlayback])
-
-  const setVolume = useCallback(
+  const setVolumeCallback = useCallback(
     async (volume: number) => {
-      const clampedVolume = Math.max(0, Math.min(100, volume))
-      getStoreActions().setVolume(clampedVolume)
-
-      if (isPremium && playerRef.current) {
-        try {
-          await playerRef.current.setVolume(clampedVolume / 100)
-          setError(null)
-        } catch (err) {
-          console.error('Set volume error:', err)
-          setError('Failed to set volume')
-        }
-      } else if (!isPremium && audioRef.current) {
-        audioRef.current.volume = clampedVolume / 100
-      }
+      await setVolumeFn(volume, isPremium)
     },
-    [isPremium, getStoreActions]
+    [isPremium]
   )
 
   return {
-    isReady,
+    isReady: state.isReady,
     isPremium,
-    play,
-    pause,
-    resume,
-    seek,
-    nextTrack,
-    previousTrack,
-    setVolume,
-    error,
+    play: playFn,
+    pause: pauseFn,
+    resume: resumeFn,
+    seek: seekFn,
+    nextTrack: nextTrackCallback,
+    previousTrack: previousTrackCallback,
+    setVolume: setVolumeCallback,
+    error: state.error,
   }
 }
