@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import { AppLayout } from '@/components/layout/app-layout'
+import { RequireAuth } from '@/components/auth/require-auth'
 import { useAuthStore } from '@/lib/store/auth-store'
 import { usersService } from '@/lib/api/services/users'
 import { User, Save, Loader2, X, Music2 } from 'lucide-react'
@@ -12,8 +13,16 @@ import type { UpdateProfileRequest, AvatarType } from '@/lib/types'
 import { PixelAvatarSelector, PixelAvatar } from '@/components/ui/pixel-avatar'
 
 export default function SettingsPage() {
+  return (
+    <RequireAuth>
+      <SettingsContent />
+    </RequireAuth>
+  )
+}
+
+function SettingsContent() {
   const router = useRouter()
-  const { user, updateUser, isAuthenticated } = useAuthStore()
+  const { user, updateUser } = useAuthStore()
 
   // Form state
   const [displayName, setDisplayName] = useState('')
@@ -50,13 +59,6 @@ export default function SettingsPage() {
       })
     }
   }, [user])
-
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (!isAuthenticated || !user) {
-      router.push('/login')
-    }
-  }, [isAuthenticated, user, router])
 
   // Update profile mutation
   const updateProfileMutation = useMutation({
@@ -106,14 +108,8 @@ export default function SettingsPage() {
     }
   }
 
-  if (!user || !isAuthenticated) {
-    return (
-      <AppLayout>
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
-      </AppLayout>
-    )
+  if (!user) {
+    return null
   }
 
   return (

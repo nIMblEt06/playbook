@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { AppLayout } from '@/components/layout/app-layout'
+import { RequireAuth } from '@/components/auth/require-auth'
 import { PostCard } from '@/components/posts/post-card'
 import { postsService } from '@/lib/api/services/posts'
 import { playlistsService } from '@/lib/api/services/playlists'
@@ -16,16 +16,16 @@ import Image from 'next/image'
 type Tab = 'saved' | 'playlists' | 'spotify'
 
 export default function LibraryPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('spotify')
-  const router = useRouter()
-  const { isAuthenticated, _hasHydrated } = useAuthStore()
+  return (
+    <RequireAuth>
+      <LibraryContent />
+    </RequireAuth>
+  )
+}
 
-  // Redirect non-authenticated users
-  useEffect(() => {
-    if (_hasHydrated && !isAuthenticated) {
-      router.push('/login')
-    }
-  }, [isAuthenticated, _hasHydrated, router])
+function LibraryContent() {
+  const [activeTab, setActiveTab] = useState<Tab>('spotify')
+  const { isAuthenticated } = useAuthStore()
 
   // Fetch saved posts
   const {
@@ -59,22 +59,6 @@ export default function LibraryPage() {
     queryFn: () => spotifyService.getMyPlaylists(50, 0),
     enabled: isAuthenticated && activeTab === 'spotify',
   })
-
-  // Show loading while hydrating
-  if (!_hasHydrated) {
-    return (
-      <AppLayout>
-        <div className="flex items-center justify-center min-h-screen">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
-      </AppLayout>
-    )
-  }
-
-  // Don't render if not authenticated (will redirect)
-  if (!isAuthenticated) {
-    return null
-  }
 
   return (
     <AppLayout showRightSidebar={false}>

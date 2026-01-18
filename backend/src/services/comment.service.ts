@@ -116,7 +116,6 @@ export class CommentService {
           _count: {
             select: {
               replies: true,
-              upvotes: true,
             },
           },
         },

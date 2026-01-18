@@ -141,7 +141,6 @@ export class PostService {
         _count: {
           select: {
             comments: true,
-            upvotes: true,
           },
         },
       },
@@ -382,7 +381,6 @@ export class PostService {
               _count: {
                 select: {
                   comments: true,
-                  upvotes: true,
                 },
               },
             },

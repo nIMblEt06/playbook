@@ -166,7 +166,6 @@ export class SearchService {
           _count: {
             select: {
               comments: true,
-              upvotes: true,
             },
           },
         },

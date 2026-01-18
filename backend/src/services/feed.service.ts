@@ -99,7 +99,6 @@ export class FeedService {
           _count: {
             select: {
               comments: true,
-              upvotes: true,
             },
           },
         },
@@ -163,7 +162,6 @@ export class FeedService {
           _count: {
             select: {
               comments: true,
-              upvotes: true,
             },
           },
         },
@@ -214,7 +212,6 @@ export class FeedService {
           _count: {
             select: {
               comments: true,
-              upvotes: true,
             },
           },
         },

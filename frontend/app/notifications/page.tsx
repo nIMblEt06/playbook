@@ -1,12 +1,11 @@
 'use client'
 
-import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
 import { AppLayout } from '@/components/layout/app-layout'
+import { RequireAuth } from '@/components/auth/require-auth'
 import { notificationsService } from '@/lib/api/services/notifications'
-import { useAuthStore } from '@/lib/store/auth-store'
 import type { Notification } from '@/lib/types'
 import {
   Bell,
@@ -20,15 +19,16 @@ import {
 } from 'lucide-react'
 
 export default function NotificationsPage() {
-  const router = useRouter()
-  const { isAuthenticated } = useAuthStore()
-  const queryClient = useQueryClient()
+  return (
+    <RequireAuth>
+      <NotificationsContent />
+    </RequireAuth>
+  )
+}
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      router.push('/login')
-    }
-  }, [isAuthenticated, router])
+function NotificationsContent() {
+  const router = useRouter()
+  const queryClient = useQueryClient()
 
   // Fetch notifications
   const {
@@ -39,7 +39,6 @@ export default function NotificationsPage() {
   } = useQuery({
     queryKey: ['notifications'],
     queryFn: notificationsService.getNotifications,
-    enabled: isAuthenticated,
   })
 
   // Mark as read mutation
@@ -148,10 +147,6 @@ export default function NotificationsPage() {
           </>
         )
     }
-  }
-
-  if (!isAuthenticated) {
-    return null
   }
 
   const unreadCount = notifications?.filter((n) => !n.isRead).length || 0

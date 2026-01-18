@@ -1,30 +1,24 @@
 'use client'
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { AppLayout } from '@/components/layout/app-layout'
+import { RequireAuth } from '@/components/auth/require-auth'
 import { AlbumCard } from '@/components/discover/album-card'
 import { ReviewCard } from '@/components/discover/review-card'
 import { Section, HorizontalScroll } from '@/components/discover/section'
 import { useHomepageData } from '@/lib/hooks/use-discover'
-import { useAuthStore } from '@/lib/store/auth-store'
 import { Loader2, Music, Star, Clock, Users } from 'lucide-react'
 
 export default function HomePage() {
-  const router = useRouter()
-  const { isAuthenticated } = useAuthStore()
+  return (
+    <RequireAuth>
+      <HomeContent />
+    </RequireAuth>
+  )
+}
+
+function HomeContent() {
   const { data, isLoading, error, refetch } = useHomepageData()
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      router.push('/login')
-    }
-  }, [isAuthenticated, router])
-
-  if (!isAuthenticated) {
-    return null
-  }
 
   return (
     <AppLayout showRightSidebar={false}>

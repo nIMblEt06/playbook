@@ -271,7 +271,6 @@ export class UserService {
           _count: {
             select: {
               comments: true,
-              upvotes: true,
             },
           },
         },

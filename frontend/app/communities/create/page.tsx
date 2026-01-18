@@ -4,11 +4,20 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import { AppLayout } from '@/components/layout/app-layout'
+import { RequireAuth } from '@/components/auth/require-auth'
 import { communitiesService } from '@/lib/api/services/communities'
 import { Users, Loader2, ArrowLeft, Image as ImageIcon } from 'lucide-react'
 import Link from 'next/link'
 
 export default function CreateCommunityPage() {
+  return (
+    <RequireAuth>
+      <CreateCommunityContent />
+    </RequireAuth>
+  )
+}
+
+function CreateCommunityContent() {
   const router = useRouter()
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
