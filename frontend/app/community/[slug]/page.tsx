@@ -80,7 +80,7 @@ export default function UserCommunityPage() {
         <div className="px-6 py-12 text-center">
           <h2 className="text-2xl font-display font-bold mb-4">Community Not Found</h2>
           <p className="text-muted-foreground mb-6">
-            The community you're looking for doesn't exist or has been removed.
+            The community you&apos;re looking for doesn&apos;t exist or has been removed.
           </p>
           <button onClick={() => router.push('/')} className="btn-primary">
             Go Home

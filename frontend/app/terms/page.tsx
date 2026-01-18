@@ -24,8 +24,8 @@ export default function TermsPage() {
           <h2 className="text-3xl mb-6">1. INTRODUCTION</h2>
           <div className="space-y-4 text-foreground-muted leading-relaxed">
             <p>
-              Welcome to Trackd ("we," "our," or "us"). By accessing or using our platform,
-              you agree to be bound by these Terms of Service ("Terms"). Please read them
+              Welcome to Trackd (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;). By accessing or using our platform,
+              you agree to be bound by these Terms of Service (&quot;Terms&quot;). Please read them
               carefully before using our services.
             </p>
             <p>
@@ -59,7 +59,7 @@ export default function TermsPage() {
               <h3 className="text-xl mb-3 text-foreground">2.2 Account Responsibilities</h3>
               <div className="text-foreground-muted leading-relaxed">
                 <ul className="list-disc list-inside space-y-2 ml-4">
-                  <li>You may not use another user's account without permission</li>
+                  <li>You may not use another user&apos;s account without permission</li>
                   <li>You may not create multiple accounts to manipulate the platform</li>
                   <li>You are responsible for all activity under your account</li>
                   <li>You must notify us immediately of any unauthorized account access</li>
@@ -162,7 +162,7 @@ export default function TermsPage() {
               <h3 className="text-xl mb-3 text-foreground">5.1 Service Availability</h3>
               <div className="text-foreground-muted leading-relaxed">
                 <p>
-                  Trackd is provided "as is" without warranties of any kind. We do not guarantee
+                  Trackd is provided &quot;as is&quot; without warranties of any kind. We do not guarantee
                   that the service will be uninterrupted, secure, or error-free. We may modify,
                   suspend, or discontinue the service at any time.
                 </p>

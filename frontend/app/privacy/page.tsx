@@ -332,7 +332,7 @@ export default function PrivacyPage() {
 
         {/* Children's Privacy */}
         <section className="mb-12">
-          <h2 className="text-3xl mb-6">8. CHILDREN'S PRIVACY</h2>
+          <h2 className="text-3xl mb-6">8. CHILDREN&apos;S PRIVACY</h2>
           <div className="text-foreground-muted leading-relaxed space-y-4">
             <p>
               Trackd is not intended for children under 13 years of age. We do not knowingly

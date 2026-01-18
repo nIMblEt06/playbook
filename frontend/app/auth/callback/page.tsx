@@ -36,7 +36,7 @@ export default function AuthCallbackPage() {
         localStorage.setItem('token', token)
 
         // Fetch user profile from backend
-        const { user } = await authService.me()
+        const user = await authService.me()
 
         // Store auth state
         setAuth(user, token)

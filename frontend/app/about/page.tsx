@@ -42,7 +42,7 @@ export default function AboutPage() {
             <p className="text-lg text-foreground-muted leading-relaxed">
               To create a space where music lovers can connect authentically, share their
               passion, and discover incredible music through genuine human connections
-              rather than opaque algorithms. We're building a platform that celebrates
+              rather than opaque algorithms. We&apos;re building a platform that celebrates
               musical diversity, supports independent artists, and empowers communities
               to shape the music landscape.
             </p>
@@ -124,7 +124,7 @@ export default function AboutPage() {
           <h2 className="text-3xl mb-6">GET IN TOUCH</h2>
           <div className="card p-8">
             <p className="text-foreground-muted mb-6">
-              Have questions, feedback, or want to collaborate? We'd love to hear from you.
+              Have questions, feedback, or want to collaborate? We&apos;d love to hear from you.
             </p>
             <div className="flex flex-wrap gap-4">
               <a

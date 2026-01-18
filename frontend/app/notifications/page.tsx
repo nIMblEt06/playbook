@@ -219,7 +219,7 @@ export default function NotificationsPage() {
             <Bell className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
             <h2 className="text-xl font-semibold mb-2">No notifications yet</h2>
             <p className="text-muted-foreground">
-              When someone follows you, upvotes your posts, or comments, you'll see it here
+              When someone follows you, upvotes your posts, or comments, you&apos;ll see it here
             </p>
           </div>
         )}
