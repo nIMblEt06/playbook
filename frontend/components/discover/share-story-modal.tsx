@@ -27,7 +27,10 @@ export function ShareStoryModal({ review, isOpen, onClose }: ShareStoryModalProp
   }, [isOpen])
 
   const generateImage = useCallback(async () => {
-    if (!templateRef.current) return
+    if (!templateRef.current) {
+      console.error('Template ref not found')
+      return
+    }
 
     setIsGenerating(true)
 
@@ -41,20 +44,46 @@ export function ShareStoryModal({ review, isOpen, onClose }: ShareStoryModalProp
         throw new Error('Story element not found')
       }
 
+      // Temporarily remove transform for accurate capture
+      const originalTransform = storyElement.parentElement?.style.transform
+      const originalWidth = storyElement.parentElement?.style.width
+      const originalHeight = storyElement.parentElement?.style.height
+
+      if (storyElement.parentElement) {
+        storyElement.parentElement.style.transform = 'none'
+        storyElement.parentElement.style.width = '1080px'
+        storyElement.parentElement.style.height = '1920px'
+      }
+
       const canvas = await html2canvas(storyElement, {
-        scale: 2, // Higher quality
+        scale: 1, // Use scale 1 since we're already at full size
         useCORS: true, // Allow cross-origin images
-        allowTaint: true,
+        allowTaint: false, // Don't allow tainted canvas
         backgroundColor: '#0a0a0a',
         width: 1080,
         height: 1920,
-        logging: false,
+        logging: true, // Enable logging for debugging
+        onclone: (clonedDoc) => {
+          // Ensure fonts are loaded in cloned document
+          const clonedElement = clonedDoc.querySelector('.story-capture') as HTMLElement
+          if (clonedElement) {
+            clonedElement.style.transform = 'none'
+          }
+        }
       })
+
+      // Restore original transform
+      if (storyElement.parentElement) {
+        storyElement.parentElement.style.transform = originalTransform || ''
+        storyElement.parentElement.style.width = originalWidth || ''
+        storyElement.parentElement.style.height = originalHeight || ''
+      }
 
       const dataUrl = canvas.toDataURL('image/png', 1.0)
       setGeneratedImage(dataUrl)
     } catch (error) {
       console.error('Error generating image:', error)
+      alert('Failed to generate image. Please try again.')
     } finally {
       setIsGenerating(false)
     }

@@ -396,7 +396,7 @@ export function ReviewStoryTemplate({ review }: ReviewStoryTemplateProps) {
                 color: '#86EFAC',
               }}
             >
-              trackd.app
+              trackd.site
             </p>
           </div>
         </div>

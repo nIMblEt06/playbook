@@ -1,5 +1,5 @@
 import { apiClient } from '../client'
-import type { User, Post, UpdateProfileRequest, PaginatedResponse, ActivityItem } from '../../types'
+import type { User, Post, UpdateProfileRequest, PaginatedResponse, ActivityItem, Community } from '../../types'
 import { transformPaginatedResponse, type BackendPaginatedResponse } from '../utils'
 
 export const usersService = {
@@ -48,6 +48,11 @@ export const usersService = {
 
   async getUserReviews(username: string, params?: { page?: number; limit?: number }): Promise<PaginatedResponse<ActivityItem>> {
     const response = await apiClient.get<BackendPaginatedResponse<ActivityItem>>(`/api/users/${username}/reviews`, { params })
+    return transformPaginatedResponse(response.data)
+  },
+
+  async getUserCommunities(username: string, params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Community>> {
+    const response = await apiClient.get<BackendPaginatedResponse<Community>>(`/api/users/${username}/communities`, { params })
     return transformPaginatedResponse(response.data)
   },
 }

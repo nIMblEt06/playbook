@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation'
 import { Home, Search, Library, Plus, Activity } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/auth-store'
 import { useQuery } from '@tanstack/react-query'
-import { communitiesService } from '@/lib/api/services/communities'
 import { usersService } from '@/lib/api/services/users'
 
 export function Sidebar() {
@@ -14,9 +13,9 @@ export function Sidebar() {
   const { user, isAuthenticated } = useAuthStore()
 
   const { data: communities } = useQuery({
-    queryKey: ['communities', 'joined'],
-    queryFn: () => communitiesService.getCommunities({ limit: 5 }),
-    enabled: isAuthenticated,
+    queryKey: ['communities', 'joined', user?.username],
+    queryFn: () => usersService.getUserCommunities(user!.username, { limit: 5 }),
+    enabled: isAuthenticated && !!user,
   })
 
   const { data: following } = useQuery({

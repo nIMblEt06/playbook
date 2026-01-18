@@ -1,5 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { userService } from '../services/user.service.js';
+import { communityService } from '../services/community.service.js';
 import { updateUserSchema, paginationSchema, type UpdateUserInput } from '../schemas/user.schema.js';
 
 interface UserParams {
@@ -179,6 +180,28 @@ export async function userRoutes(fastify: FastifyInstance) {
           if (error.message === 'User not found') {
             return reply.code(404).send({ error: error.message });
           }
+          return reply.code(400).send({ error: error.message });
+        }
+        throw error;
+      }
+    }
+  );
+
+  // GET /api/users/:username/communities - Get user's joined communities
+  fastify.get<{ Params: UserParams; Querystring: { page?: string; limit?: string } }>(
+    '/:username/communities',
+    async (request, reply) => {
+      try {
+        const user = await userService.getUserByUsername(request.params.username);
+        if (!user) {
+          return reply.code(404).send({ error: 'User not found' });
+        }
+
+        const pagination = paginationSchema.parse(request.query);
+        const result = await communityService.getUserCommunities(user.id, pagination);
+        return reply.send(result);
+      } catch (error) {
+        if (error instanceof Error) {
           return reply.code(400).send({ error: error.message });
         }
         throw error;
