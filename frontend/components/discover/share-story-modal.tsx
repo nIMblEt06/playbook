@@ -62,9 +62,27 @@ export function ShareStoryModal({ review, isOpen, onClose }: ShareStoryModalProp
         backgroundColor: '#0a0a0a',
         width: 1080,
         height: 1920,
-        logging: true, // Enable logging for debugging
+        logging: false,
         onclone: (clonedDoc) => {
-          // Ensure fonts are loaded in cloned document
+          // Override oklch CSS variables with standard colors to fix html2canvas compatibility
+          // html2canvas doesn't support oklch color function
+          const style = clonedDoc.createElement('style')
+          style.textContent = `
+            :root, *, *::before, *::after {
+              --background: #0a0a0a !important;
+              --foreground: #fafafa !important;
+              --primary: #86EFAC !important;
+              --muted: #262626 !important;
+              --muted-foreground: #a1a1aa !important;
+              --border: #27272a !important;
+            }
+            .story-capture, .story-capture * {
+              color: inherit;
+            }
+          `
+          clonedDoc.head.appendChild(style)
+
+          // Ensure the cloned element has no transform
           const clonedElement = clonedDoc.querySelector('.story-capture') as HTMLElement
           if (clonedElement) {
             clonedElement.style.transform = 'none'
@@ -207,7 +225,7 @@ export function ShareStoryModal({ review, isOpen, onClose }: ShareStoryModalProp
           <p className="text-sm text-muted-foreground text-center mb-4">
             {generatedImage
               ? 'Your story is ready! Download or share it directly to Instagram.'
-              : 'Preview your review story. Tap generate to create the image.'}
+              : 'Preview your story!.'}
           </p>
 
           {/* Action Buttons */}
@@ -272,13 +290,6 @@ export function ShareStoryModal({ review, isOpen, onClose }: ShareStoryModalProp
               </>
             )}
           </div>
-        </div>
-
-        {/* Footer hint */}
-        <div className="px-4 py-3 border-t border-border bg-muted/30 flex-shrink-0">
-          <p className="text-xs text-muted-foreground text-center">
-            Perfect for Instagram Stories (1080 x 1920)
-          </p>
         </div>
       </div>
     </div>

@@ -536,10 +536,14 @@ export async function getNewReleases(
   }
 
   try {
+    // Use Search API with tag:new to get albums released in the past two weeks
+    // This is more reliable than /browse/new-releases which returns curated/featured content
     const response = await fetch(
-      `${SPOTIFY_API_URL}/browse/new-releases?` +
+      `${SPOTIFY_API_URL}/search?` +
         new URLSearchParams({
-          country,
+          q: 'tag:new',
+          type: 'album',
+          market: country,
           limit: limit.toString(),
           offset: offset.toString(),
         }),
