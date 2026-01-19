@@ -176,29 +176,31 @@ export function ActivityCard({ activity }: ActivityCardProps) {
         </div>
       )}
 
-      {/* Footer - Stats */}
-      <div className="flex items-center gap-3 md:gap-4 text-xs md:text-sm text-muted-foreground">
-        <button
-          onClick={handleUpvote}
-          className={`flex items-center gap-1 px-2 py-1 rounded transition-colors ${
-            hasUpvoted
-              ? 'text-primary bg-primary/10'
-              : 'hover:text-foreground hover:bg-muted'
-          }`}
-          aria-label={hasUpvoted ? 'Remove upvote' : 'Upvote review'}
-        >
-          <ThumbsUp className={`w-3 h-3 md:w-3.5 md:h-3.5 ${hasUpvoted ? 'fill-current' : ''}`} />
-          <span>{upvoteCount}</span>
-        </button>
-        <Link
-          href={`/album/${activity.album?.spotifyId}#review-${activity.id}`}
-          className="flex items-center gap-1 px-2 py-1 rounded hover:text-foreground hover:bg-muted transition-colors"
-          aria-label="View comments"
-        >
-          <MessageCircle className="w-3 h-3 md:w-3.5 md:h-3.5" />
-          <span>{activity.commentCount}</span>
-        </Link>
-      </div>
+      {/* Footer - Stats (only show engagement for actual reviews, not rating-only entries) */}
+      {(activity.title || activity.content) && (
+        <div className="flex items-center gap-3 md:gap-4 text-xs md:text-sm text-muted-foreground">
+          <button
+            onClick={handleUpvote}
+            className={`flex items-center gap-1 px-2 py-1 rounded transition-colors ${
+              hasUpvoted
+                ? 'text-primary bg-primary/10'
+                : 'hover:text-foreground hover:bg-muted'
+            }`}
+            aria-label={hasUpvoted ? 'Remove upvote' : 'Upvote review'}
+          >
+            <ThumbsUp className={`w-3 h-3 md:w-3.5 md:h-3.5 ${hasUpvoted ? 'fill-current' : ''}`} />
+            <span>{upvoteCount}</span>
+          </button>
+          <Link
+            href={`/album/${activity.album?.spotifyId}#review-${activity.id}`}
+            className="flex items-center gap-1 px-2 py-1 rounded hover:text-foreground hover:bg-muted transition-colors"
+            aria-label="View comments"
+          >
+            <MessageCircle className="w-3 h-3 md:w-3.5 md:h-3.5" />
+            <span>{activity.commentCount}</span>
+          </Link>
+        </div>
+      )}
     </div>
   )
 }
