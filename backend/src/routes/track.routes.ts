@@ -37,14 +37,14 @@ export async function trackRoutes(fastify: FastifyInstance) {
           });
         }
 
-        // Create or update the rating
-        const rating = await reviewService.rateTrack(request.user.userId, track.id, value);
+        // Create or update the rating (now stored as a Review)
+        const review = await reviewService.rateTrack(request.user.userId, track.id, value);
 
         return reply.code(200).send({
           success: true,
           rating: {
-            id: rating.id,
-            value: rating.value,
+            id: review.id,
+            value: review.rating,
             trackId: track.id,
           },
         });

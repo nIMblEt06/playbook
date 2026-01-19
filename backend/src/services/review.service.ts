@@ -706,55 +706,37 @@ export async function rateAlbum(
   userId: string,
   albumId: string,
   value: number
-): Promise<Rating | Review> {
+): Promise<Review> {
   if (value < 1 || value > 5) {
     throw new Error('Rating must be between 1 and 5');
   }
 
-  // Check if user has an existing review for this album
-  const existingReview = await prisma.review.findUnique({
+  // Upsert review with rating - this makes ratings appear in activity feeds
+  const review = await prisma.review.upsert({
     where: {
       authorId_albumId: { authorId: userId, albumId },
     },
-  });
-
-  if (existingReview) {
-    // User has a review - update the review's rating instead of creating a standalone rating
-    const updatedReview = await prisma.review.update({
-      where: { id: existingReview.id },
-      data: { rating: value },
-    });
-
-    // Delete any standalone rating if it exists (cleanup)
-    await prisma.rating.deleteMany({
-      where: { userId, albumId },
-    });
-
-    // Update album rating stats
-    await albumService.updateAlbumRatingStats(albumId);
-
-    return updatedReview;
-  }
-
-  // No review exists - use standalone rating
-  const rating = await prisma.rating.upsert({
-    where: {
-      userId_albumId: { userId, albumId },
-    },
     create: {
-      userId,
+      authorId: userId,
+      targetType: 'album',
       albumId,
-      value,
+      rating: value,
+      // title and content remain null for rating-only entries
     },
     update: {
-      value,
+      rating: value,
     },
+  });
+
+  // Delete any standalone rating if it exists (cleanup/migration)
+  await prisma.rating.deleteMany({
+    where: { userId, albumId },
   });
 
   // Update album rating stats
   await albumService.updateAlbumRatingStats(albumId);
 
-  return rating;
+  return review;
 }
 
 /**
@@ -764,26 +746,34 @@ export async function rateTrack(
   userId: string,
   trackId: string,
   value: number
-): Promise<Rating> {
+): Promise<Review> {
   if (value < 1 || value > 5) {
     throw new Error('Rating must be between 1 and 5');
   }
 
-  const rating = await prisma.rating.upsert({
+  // Upsert review with rating - this makes ratings appear in activity feeds
+  const review = await prisma.review.upsert({
     where: {
-      userId_trackId: { userId, trackId },
+      authorId_trackId: { authorId: userId, trackId },
     },
     create: {
-      userId,
+      authorId: userId,
+      targetType: 'track',
       trackId,
-      value,
+      rating: value,
+      // title and content remain null for rating-only entries
     },
     update: {
-      value,
+      rating: value,
     },
   });
 
-  return rating;
+  // Delete any standalone rating if it exists (cleanup/migration)
+  await prisma.rating.deleteMany({
+    where: { userId, trackId },
+  });
+
+  return review;
 }
 
 /**
@@ -795,17 +785,58 @@ export async function removeRating(
   targetId: string
 ): Promise<void> {
   if (targetType === 'album') {
-    await prisma.rating.delete({
+    // First try to find a review
+    const review = await prisma.review.findUnique({
       where: {
-        userId_albumId: { userId, albumId: targetId },
+        authorId_albumId: { authorId: userId, albumId: targetId },
       },
     });
+
+    if (review) {
+      // If review has content/title, just remove the rating
+      if (review.title || review.content) {
+        await prisma.review.update({
+          where: { id: review.id },
+          data: { rating: null },
+        });
+      } else {
+        // Rating-only review - delete it entirely
+        await prisma.review.delete({
+          where: { id: review.id },
+        });
+      }
+    }
+
+    // Also clean up any legacy standalone rating
+    await prisma.rating.deleteMany({
+      where: { userId, albumId: targetId },
+    });
+
     await albumService.updateAlbumRatingStats(targetId);
   } else {
-    await prisma.rating.delete({
+    // For tracks, similar logic
+    const review = await prisma.review.findUnique({
       where: {
-        userId_trackId: { userId, trackId: targetId },
+        authorId_trackId: { authorId: userId, trackId: targetId },
       },
+    });
+
+    if (review) {
+      if (review.title || review.content) {
+        await prisma.review.update({
+          where: { id: review.id },
+          data: { rating: null },
+        });
+      } else {
+        await prisma.review.delete({
+          where: { id: review.id },
+        });
+      }
+    }
+
+    // Clean up any legacy standalone rating
+    await prisma.rating.deleteMany({
+      where: { userId, trackId: targetId },
     });
   }
 }
@@ -817,6 +848,19 @@ export async function getUserAlbumRating(
   userId: string,
   albumId: string
 ): Promise<number | null> {
+  // Check review first (primary source after migration)
+  const review = await prisma.review.findUnique({
+    where: {
+      authorId_albumId: { authorId: userId, albumId },
+    },
+    select: { rating: true },
+  });
+
+  if (review?.rating !== null && review?.rating !== undefined) {
+    return review.rating;
+  }
+
+  // Fallback to legacy standalone rating
   const rating = await prisma.rating.findUnique({
     where: {
       userId_albumId: { userId, albumId },
