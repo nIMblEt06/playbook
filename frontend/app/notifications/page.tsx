@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
 import { AppLayout } from '@/components/layout/app-layout'
@@ -234,9 +235,11 @@ function NotificationsContent() {
                   {/* Actor Avatar */}
                   <div className="flex-shrink-0">
                     {notification.actor.avatarUrl ? (
-                      <img
+                      <Image
                         src={notification.actor.avatarUrl}
                         alt={notification.actor.displayName}
+                        width={48}
+                        height={48}
                         className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover"
                       />
                     ) : (

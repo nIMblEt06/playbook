@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import Image from 'next/image'
 import { AppLayout } from '@/components/layout/app-layout'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { communitiesService } from '@/lib/api/services/communities'
@@ -144,10 +145,11 @@ function CommunityCard({ community, onJoinLeave, isLoading }: CommunityCardProps
       {community.coverImageUrl && (
         <Link href={communityUrl}>
           <div className="relative w-full h-32 overflow-hidden border-b-2 border-card-border">
-            <img
+            <Image
               src={community.coverImageUrl}
               alt={community.name}
-              className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+              fill
+              className="object-cover hover:scale-105 transition-transform duration-300"
             />
           </div>
         </Link>

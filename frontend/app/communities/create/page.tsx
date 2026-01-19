@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { useMutation } from '@tanstack/react-query'
 import { AppLayout } from '@/components/layout/app-layout'
 import { RequireAuth } from '@/components/auth/require-auth'
@@ -198,10 +199,11 @@ function CreateCommunityContent() {
             </div>
             {coverImageUrl && (
               <div className="mt-3 relative w-full h-32 overflow-hidden border-2 border-border">
-                <img
+                <Image
                   src={coverImageUrl}
                   alt="Cover preview"
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
                   onError={(e) => {
                     e.currentTarget.style.display = 'none'
                   }}

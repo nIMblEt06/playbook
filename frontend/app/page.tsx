@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { AppLayout } from '@/components/layout/app-layout'
 import { RequireAuth } from '@/components/auth/require-auth'
 import { AlbumCard } from '@/components/discover/album-card'
@@ -175,9 +176,11 @@ function ActivityItem({ activity }: ActivityItemProps) {
     >
       <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden bg-muted flex-shrink-0 flex items-center justify-center">
         {activity.user.avatarUrl ? (
-          <img
+          <Image
             src={activity.user.avatarUrl}
             alt={activity.user.displayName}
+            width={32}
+            height={32}
             className="w-full h-full object-cover"
           />
         ) : (

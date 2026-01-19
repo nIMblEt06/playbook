@@ -128,7 +128,7 @@ export default function AboutPage() {
             </p>
             <div className="flex flex-wrap gap-4">
               <a
-                href="mailto:hello@trackd.app"
+                href="mailto:niketshwetabh@gmail.com"
                 className="btn-secondary flex items-center gap-2"
               >
                 <Mail className="w-4 h-4" />

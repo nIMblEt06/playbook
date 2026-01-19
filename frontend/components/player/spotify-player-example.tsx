@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import { useSpotifyPlayer } from '@/lib/hooks/use-spotify-player'
 import { usePlayerStore } from '@/lib/store/player-store'
 
@@ -104,9 +105,11 @@ export function SpotifyPlayerExample() {
         <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg">
           <div className="flex gap-4">
             {currentTrack.coverUrl && (
-              <img
+              <Image
                 src={currentTrack.coverUrl}
                 alt={currentTrack.albumName}
+                width={80}
+                height={80}
                 className="w-20 h-20 rounded object-cover"
               />
             )}

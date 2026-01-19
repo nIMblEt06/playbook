@@ -1,9 +1,10 @@
 /**
  * PlayButton Usage Examples
- * 
+ *
  * This file demonstrates various ways to use the PlayButton component
  */
 
+import Image from 'next/image'
 import { PlayButton, spotifyTrackToPlayerTrack, spotifyTracksToPlayerTracks } from './play-button'
 import type { SpotifyTrack } from '@/lib/api/services/spotify'
 
@@ -13,7 +14,7 @@ function TrackCard({ track }: { track: SpotifyTrack }) {
   
   return (
     <div className="flex items-center gap-4 p-4">
-      <img src={track.album.images[0]?.url} alt={track.name} className="w-16 h-16" />
+      <Image src={track.album.images[0]?.url || ''} alt={track.name} width={64} height={64} className="w-16 h-16" />
       <div className="flex-1">
         <h3>{track.name}</h3>
         <p>{track.artists.map(a => a.name).join(', ')}</p>
@@ -29,14 +30,14 @@ function AlbumHeader({ album, tracks }: { album: any; tracks: SpotifyTrack[] }) 
   
   return (
     <div className="flex items-center gap-6 p-8">
-      <img src={album.images[0]?.url} alt={album.name} className="w-48 h-48" />
+      <Image src={album.images[0]?.url || ''} alt={album.name} width={192} height={192} className="w-48 h-48" />
       <div>
         <h1 className="text-4xl font-bold">{album.name}</h1>
         <p className="text-xl">{album.artists.map((a: any) => a.name).join(', ')}</p>
         <div className="mt-4">
-          <PlayButton 
-            tracks={playerTracks} 
-            size="lg" 
+          <PlayButton
+            tracks={playerTracks}
+            size="lg"
             variant="default"
           />
         </div>
@@ -77,14 +78,16 @@ function AlbumCover({ album, tracks }: { album: any; tracks: SpotifyTrack[] }) {
   
   return (
     <div className="relative group cursor-pointer">
-      <img 
-        src={album.images[0]?.url} 
-        alt={album.name} 
+      <Image
+        src={album.images[0]?.url || ''}
+        alt={album.name}
+        width={300}
+        height={300}
         className="w-full aspect-square object-cover rounded-lg"
       />
       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center">
         <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-          <PlayButton 
+          <PlayButton
             tracks={playerTracks}
             size="lg"
             variant="overlay"
@@ -111,13 +114,13 @@ function PlaylistView({ playlist, tracks }: { playlist: any; tracks: SpotifyTrac
         return (
           <div key={track.id} className="flex items-center gap-4 p-2">
             <span>{index + 1}</span>
-            <img src={track.album.images[0]?.url} className="w-10 h-10" />
+            <Image src={track.album.images[0]?.url || ''} alt={track.name} width={40} height={40} className="w-10 h-10" />
             <div className="flex-1">
               <p>{track.name}</p>
               <p className="text-sm text-gray-600">{track.artists.map(a => a.name).join(', ')}</p>
             </div>
             {/* Play from this track onwards in the playlist */}
-            <PlayButton 
+            <PlayButton
               tracks={playerTracks}
               startIndex={index}
               size="sm"

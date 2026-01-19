@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import Image from 'next/image'
 import {
   Play,
   Pause,
@@ -203,9 +204,11 @@ export function MusicPlayer() {
         <div className="flex flex-1 md:flex-none md:w-[300px] items-center gap-2 md:gap-3 min-w-0">
           <div className="relative h-10 w-10 md:h-14 md:w-14 flex-shrink-0 overflow-hidden border-2 border-card-border bg-background-secondary">
             {currentTrack.coverUrl ? (
-              <img
+              <Image
                 src={currentTrack.coverUrl}
                 alt={currentTrack.albumName}
+                width={56}
+                height={56}
                 className="h-full w-full object-cover"
               />
             ) : (

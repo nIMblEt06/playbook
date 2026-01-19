@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import Image from 'next/image'
 
 interface PixelAvatarProps {
   avatarId: number // 1-5
@@ -202,8 +203,7 @@ export function UserAvatar({
   // Custom avatar URL
   if (avatarUrl) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
+      <Image
         src={avatarUrl}
         alt={displayName}
         width={size}

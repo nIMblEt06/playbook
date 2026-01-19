@@ -228,8 +228,7 @@ export default function TermsPage() {
               If you have questions about these Terms, please contact us:
             </p>
             <div className="text-foreground-muted">
-              <p>Email: legal@trackd.app</p>
-              <p>Address: [Address to be added]</p>
+              <p>Email: niketshwetabh@gmail.com</p>
             </div>
           </div>
         </section>

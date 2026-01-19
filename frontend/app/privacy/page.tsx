@@ -322,8 +322,8 @@ export default function PrivacyPage() {
             <div className="card p-6">
               <p className="text-foreground-muted">
                 To exercise your rights, please contact us at{' '}
-                <a href="mailto:privacy@trackd.app" className="text-primary hover:underline">
-                  privacy@trackd.app
+                <a href="mailto:niketshwetabh@gmail.com" className="text-primary hover:underline">
+                  niketshwetabh@gmail.com
                 </a>
               </p>
             </div>
@@ -391,14 +391,14 @@ export default function PrivacyPage() {
             <div className="text-foreground-muted space-y-2">
               <p>
                 <strong className="text-foreground">Email:</strong>{' '}
-                <a href="mailto:privacy@trackd.app" className="text-primary hover:underline">
-                  privacy@trackd.app
+                <a href="mailto:niketshwetabh@gmail.com" className="text-primary hover:underline">
+                  niketshwetabh@gmail.com
                 </a>
               </p>
               <p>
                 <strong className="text-foreground">Data Protection Officer:</strong>{' '}
-                <a href="mailto:dpo@trackd.app" className="text-primary hover:underline">
-                  dpo@trackd.app
+                <a href="mailto:niketshwetabh@gmail.com" className="text-primary hover:underline">
+                  niketshwetabh@gmail.com
                 </a>
               </p>
               <p>
