@@ -45,32 +45,47 @@ export default function AlbumPage() {
 
   // Handle hash-based navigation to specific review
   useEffect(() => {
-    const handleHashNavigation = () => {
+    const hash = window.location.hash
+    if (!hash.startsWith('#review-')) return
+
+    const reviewId = hash.replace('#review-', '')
+    setExpandedReviewId(reviewId)
+    setHighlightedReviewId(reviewId)
+
+    // Remove highlight after 3 seconds
+    setTimeout(() => setHighlightedReviewId(null), 3000)
+
+    // Only scroll once reviews are loaded
+    if (reviewsData?.items) {
+      // Small delay to ensure DOM has updated after render
+      setTimeout(() => {
+        const element = document.getElementById(`review-${reviewId}`)
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }, 100)
+    }
+  }, [reviewsData?.items])
+
+  // Listen for hash changes (SPA navigation within same album)
+  useEffect(() => {
+    const handleHashChange = () => {
       const hash = window.location.hash
       if (hash.startsWith('#review-')) {
         const reviewId = hash.replace('#review-', '')
         setExpandedReviewId(reviewId)
         setHighlightedReviewId(reviewId)
-
-        // Remove highlight after 3 seconds
         setTimeout(() => setHighlightedReviewId(null), 3000)
 
-        // Scroll to review after a brief delay to ensure DOM is ready
-        setTimeout(() => {
-          const element = document.getElementById(`review-${reviewId}`)
-          if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'start' })
-          }
-        }, 100)
+        const element = document.getElementById(`review-${reviewId}`)
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
       }
     }
 
-    // Handle initial hash on mount
-    handleHashNavigation()
-
-    // Listen for hash changes (SPA navigation)
-    window.addEventListener('hashchange', handleHashNavigation)
-    return () => window.removeEventListener('hashchange', handleHashNavigation)
+    window.addEventListener('hashchange', handleHashChange)
+    return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
   // Format duration from milliseconds to mm:ss

@@ -1,16 +1,32 @@
 'use client'
 
+import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Star, ThumbsUp, MessageCircle, Music, User, Disc3 } from 'lucide-react'
 import type { ActivityItem } from '@/lib/types'
 import { formatDistanceToNow } from '@/lib/utils/format'
+import { useUpvoteReview } from '@/lib/hooks/use-reviews'
 
 interface ActivityCardProps {
   activity: ActivityItem
 }
 
 export function ActivityCard({ activity }: ActivityCardProps) {
+  const [hasUpvoted, setHasUpvoted] = useState(activity.hasUpvoted || false)
+  const [upvoteCount, setUpvoteCount] = useState(activity.upvoteCount)
+
+  const upvoteMutation = useUpvoteReview()
+
+  const handleUpvote = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const newUpvoted = !hasUpvoted
+    setHasUpvoted(newUpvoted)
+    setUpvoteCount((prev) => (newUpvoted ? prev + 1 : prev - 1))
+    upvoteMutation.mutate({ id: activity.id, remove: !newUpvoted })
+  }
+
   const renderStars = (rating: number) => {
     return (
       <div className="flex items-center gap-0.5">
@@ -162,14 +178,26 @@ export function ActivityCard({ activity }: ActivityCardProps) {
 
       {/* Footer - Stats */}
       <div className="flex items-center gap-3 md:gap-4 text-xs md:text-sm text-muted-foreground">
-        <span className="flex items-center gap-1">
-          <ThumbsUp className="w-3 h-3 md:w-3.5 md:h-3.5" />
-          {activity.upvoteCount}
-        </span>
-        <span className="flex items-center gap-1">
+        <button
+          onClick={handleUpvote}
+          className={`flex items-center gap-1 px-2 py-1 rounded transition-colors ${
+            hasUpvoted
+              ? 'text-primary bg-primary/10'
+              : 'hover:text-foreground hover:bg-muted'
+          }`}
+          aria-label={hasUpvoted ? 'Remove upvote' : 'Upvote review'}
+        >
+          <ThumbsUp className={`w-3 h-3 md:w-3.5 md:h-3.5 ${hasUpvoted ? 'fill-current' : ''}`} />
+          <span>{upvoteCount}</span>
+        </button>
+        <Link
+          href={`/album/${activity.album?.spotifyId}#review-${activity.id}`}
+          className="flex items-center gap-1 px-2 py-1 rounded hover:text-foreground hover:bg-muted transition-colors"
+          aria-label="View comments"
+        >
           <MessageCircle className="w-3 h-3 md:w-3.5 md:h-3.5" />
-          {activity.commentCount}
-        </span>
+          <span>{activity.commentCount}</span>
+        </Link>
       </div>
     </div>
   )

@@ -30,6 +30,7 @@ export function useUpvoteReview() {
       queryClient.invalidateQueries({ queryKey: ['discover'] })
       queryClient.invalidateQueries({ queryKey: ['reviews'] })
       queryClient.invalidateQueries({ queryKey: ['popular-reviews'] })
+      queryClient.invalidateQueries({ queryKey: ['activity'] })
     },
   })
 }
